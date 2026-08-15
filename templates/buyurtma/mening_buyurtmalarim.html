@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block title %}Buyurtmalarim{% endblock %}
+{% block page_title %}Buyurtmalarim{% endblock %}
+{% block page_sub %}Buyurtmalaringiz holati va tarixi{% endblock %}
+{% block extra_css %}
+<style>
+/* Buyurtma progress stepper */
+.stp{display:flex;align-items:flex-start;justify-content:space-between;margin:14px 0 4px;position:relative;}
+.stp-item{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;z-index:1;}
+.stp-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:12px;background:var(--bg3);color:var(--text3);border:2px solid var(--border2);transition:all .2s;}
+.stp-item.done .stp-dot{background:var(--accent3);border-color:var(--accent3);color:#fff;}
+.stp-item.current .stp-dot{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 0 4px rgba(0,212,255,.18);}
+.stp-lbl{font-size:11px;margin-top:6px;color:var(--text3);font-weight:600;}
+.stp-item.done .stp-lbl,.stp-item.current .stp-lbl{color:var(--text);}
+.stp-line{position:absolute;top:15px;height:2px;background:var(--border2);z-index:0;}
+.stp-line.done{background:var(--accent3);}
+.prep-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding:10px 14px;
+  border-radius:11px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.18);font-size:13px;}
+.prep-banner.ready{background:rgba(24,216,178,.10);border-color:rgba(24,216,178,.25);}
+</style>
+{% endblock %}
+
+{% block content %}
+{% for b in buyurtmalar %}
+<div class="card" style="margin-bottom:14px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+    <div>
+      <div style="font-weight:800;font-size:16px;">Buyurtma {{ b.raqam }}</div>
+      <div style="font-size:12px;color:var(--text3);"><i class="fas fa-store"></i> {{ b.dokon.dokon_nomi }} · {{ b.yaratilgan|date:"d.m.Y H:i" }}</div>
+    </div>
+    <span class="status
+      {% if b.holat == 'yangi' %}status-warn{% elif b.holat == 'tayyor' %}status-green
+      {% elif b.holat == 'olib_ketildi' %}status-blue{% elif b.holat == 'bekor' %}status-red
+      {% else %}status-warn{% endif %}">{{ b.get_holat_display }}</span>
+  </div>
+
+  <!-- Progress stepper (faqat bekor qilinmagan buyurtmalar) -->
+  {% with bosqichlar=b.oqim_bosqichlari %}
+  {% if bosqichlar %}
+  <div class="stp">
+    <div class="stp-line {% if not bosqichlar.0.current %}done{% endif %}" style="left:12.5%;right:62.5%;"></div>
+    <div class="stp-line {% if bosqichlar.2.done or bosqichlar.2.current or bosqichlar.3.done or bosqichlar.3.current %}done{% endif %}" style="left:37.5%;right:37.5%;"></div>
+    <div class="stp-line {% if bosqichlar.3.done or bosqichlar.3.current %}done{% endif %}" style="left:62.5%;right:12.5%;"></div>
+    {% for s in bosqichlar %}
+    <div class="stp-item {% if s.done %}done{% elif s.current %}current{% endif %}">
+      <div class="stp-dot">{% if s.done %}<i class="fas fa-check"></i>{% else %}{{ forloop.counter }}{% endif %}</div>
+      <div class="stp-lbl">{{ s.nom }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  <!-- Olib ketish + tayyorlanish vaqti -->
+  {% if b.holat == 'yangi' or b.holat == 'tayyorlanmoqda' %}
+  <div class="prep-banner">
+    <i class="fas fa-store" style="color:var(--accent);"></i>
+    <span><b>O'zingiz olib ketasiz</b> — {{ b.dokon.dokon_nomi }}</span>
+    <span style="margin-left:auto;color:var(--text2);">
+      <i class="fas fa-clock"></i> ~{{ b.tayyorlanish_daqiqa }} daqiqada tayyor
+      <b style="color:var(--accent);">(taxminan {{ b.taxminiy_tayyor_vaqt|date:"H:i" }})</b>
+    </span>
+  </div>
+  {% elif b.holat == 'tayyor' %}
+  <div class="prep-banner ready">
+    <i class="fas fa-circle-check" style="color:var(--accent3);"></i>
+    <span><b>Tayyor!</b> {{ b.dokon.dokon_nomi }} dan olib ketishingiz mumkin.</span>
+  </div>
+  {% endif %}
+
+  <!-- Mahsulotlar -->
+  <div style="margin:12px 0;border-top:1px solid var(--border);padding-top:10px;">
+    {% for it in b.itemlar.all %}
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:4px 0;">
+      <span>
+        {% if it.mahsulot_id %}<a href="{% url 'mahsulot_detail' it.mahsulot_id %}" style="color:var(--accent);text-decoration:none;">{{ it.mahsulot_nomi }}</a>{% else %}{{ it.mahsulot_nomi }}{% endif %}
+        <span style="color:var(--text3);">×{{ it.soni }}</span>
+      </span>
+      <span style="display:flex;align-items:center;gap:10px;">
+        <b>{{ it.jami|floatformat:0 }} so'm</b>
+        {% if b.holat == 'olib_ketildi' and it.mahsulot_id and it.mahsulot_id not in sharh_yozilgan %}
+        <a href="{% url 'mahsulot_detail' it.mahsulot_id %}" class="btn btn-outline btn-sm"><i class="fas fa-star" style="color:#fbbf24;"></i> Baholash</a>
+        {% endif %}
+      </span>
+    </div>
+    {% endfor %}
+    <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:8px;">
+      <span>Jami · {{ b.item_soni }} dona</span><span>{{ b.jami|floatformat:0 }} so'm</span>
+    </div>
+  </div>
+
+  <!-- Qayta buyurtma -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn btn-outline btn-sm" onclick="qaytaBuyurtma({{ b.id }})">
+      <i class="fas fa-rotate-right"></i> Qayta buyurtma
+    </button>
+  </div>
+
+  <!-- Status tarixi -->
+  {% if b.tarix.all %}
+  <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:12px;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:8px;">Holat tarixi</div>
+    {% for t in b.tarix.all %}
+    <div style="display:flex;align-items:center;gap:10px;font-size:12.5px;padding:2px 0;">
+      <i class="fas fa-circle" style="font-size:7px;color:var(--accent);"></i>
+      <span style="min-width:150px;">{{ t.get_holat_display }}</span>
+      <span style="color:var(--text3);">{{ t.vaqt|date:"d.m.Y H:i" }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% empty %}
+<div class="card" style="text-align:center;padding:60px;color:var(--text3);">
+  <i class="fas fa-shopping-bag" style="font-size:44px;opacity:0.25;display:block;margin-bottom:12px;"></i>
+  <div style="font-size:16px;font-weight:600;">Hali buyurtma bermagansiz</div>
+  <a href="{% url 'mijoz_dashboard' %}" class="btn btn-primary btn-sm" style="margin-top:14px;">Mahsulotlarni ko'rish</a>
+</div>
+{% endfor %}
+
+{% include 'buyurtma/_pagination.html' %}
+
+<div style="display:none;">{% csrf_token %}</div>
+<script>
+function _csrf(){const m=document.querySelector('input[name=csrfmiddlewaretoken]');return m?m.value:'';}
+async function qaytaBuyurtma(id){
+  try{
+    const r=await fetch(`/order/mijoz-buyurtma/${id}/qayta/`,{
+      method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':_csrf()},body:'{}'});
+    const d=await r.json();
+    if(d.success){
+      showToast(d.message||'Savatga qo\'shildi','success');
+      setTimeout(()=>location.href='{% url "savat" %}',700);
+    }else{ showToast(d.message||'Xatolik','error'); }
+  }catch(e){ showToast('Xatolik yuz berdi','error'); }
+}
+</script>
+{% endblock %}

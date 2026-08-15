@@ -1,0 +1,70 @@
+"""REST API serializerlari — kelajakdagi React/mobil ilova uchun poydevor.
+
+Hozircha asosan O'QISH (read) uchun. Yozish (savdo qilish va h.k.) mavjud
+web view'larda atomik qilingan — ularni API'ga ko'chirish keyingi bosqich.
+"""
+from rest_framework import serializers
+
+from users.models import CustomUser
+from mahsulot.models import Mahsulot
+from kassa.models import Kassa, SavdoChek, SavdoChekMahsulot, QarzDaftar
+
+
+class UserSerializer(serializers.ModelSerializer):
+    dokon_nomi = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username', 'rol', 'dokon_nomi']
+
+    def get_dokon_nomi(self, obj):
+        from api.utils import foydalanuvchi_dokoni
+        dokon = foydalanuvchi_dokoni(obj)
+        return dokon.dokon_nomi if dokon else None
+
+
+class MahsulotSerializer(serializers.ModelSerializer):
+    kam_qoldi = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Mahsulot
+        fields = [
+            'id', 'nomi', 'barkod', 'narx', 'sotib_olish_narxi',
+            'soni', 'minimum_son', 'birlik', 'faol', 'kam_qoldi',
+            'yaroqlilik_muddati', 'rasm', 'tavsif',
+        ]
+
+    def get_kam_qoldi(self, obj):
+        return obj.soni <= obj.minimum_son
+
+
+class KassaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Kassa
+        fields = ['balans', 'yangilangan']
+
+
+class QarzDaftarSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QarzDaftar
+        fields = [
+            'id', 'mijoz_ism', 'mijoz_telefon', 'summa',
+            'to_langan', 'to_langan_sana', 'qaytarish_sana', 'yaratilgan',
+        ]
+
+
+class SavdoChekMahsulotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SavdoChekMahsulot
+        fields = ['mahsulot_nomi', 'soni', 'narx', 'jami']
+
+
+class SavdoChekSerializer(serializers.ModelSerializer):
+    mahsulotlar = SavdoChekMahsulotSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = SavdoChek
+        fields = [
+            'id', 'jami', 'chegirma', 'to_langan', 'qaytim',
+            'tolash_turi', 'yaratilgan', 'mahsulotlar',
+        ]

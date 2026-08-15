@@ -1,0 +1,1081 @@
+{% load static %}
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}DokonTizim{% endblock %}</title>
+<!-- PWA — telefonga o'rnatiladigan ilova + offline -->
+<meta name="theme-color" content="#4f8cff">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="{% static 'logod.png' %}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Savdoyim">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════
+   THEME TOKENS — DARK (default)
+═══════════════════════════════════════ */
+:root,
+[data-theme="dark"] {
+  --bg:      #070b14;
+  --bg2:     #0b1220;
+  --bg3:     #101a2d;
+
+  --card:    #111c30;
+  --card2:   #15233c;
+
+  --border:  #233552;
+  --border2: #304666;
+
+  --accent:  #4f8cff;       /* blue */
+  --accent2: #7c5cff;       /* violet */
+  --accent3: #18d8b2;       /* teal-green */
+
+  --success: #20c997;
+  --warn:    #ffb020;
+  --danger:  #ff5c5c;
+
+  --text:    #f7faff;
+  --text2:   #b3c1d8;
+  --text3:   #7b8ca7;
+
+  --shadow:    0 8px 30px rgba(0,0,0,.35);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,.45);
+  --ring:      rgba(79,140,255,.35);
+
+  /* CSS ichida ishlatiladigan yordamchi tokenlar (yuqoridagilarga moslangan) */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.30);
+  --sidebar-glass: rgba(7, 11, 20, 0.82);
+  --topbar-glass:  rgba(7, 11, 20, 0.80);
+  --glow-blue:   rgba(79, 140, 255, 0.20);
+  --glow-teal:   rgba(24, 216, 178, 0.14);
+  --glow-violet: rgba(124, 92, 255, 0.16);
+}
+
+/* ═══════════════════════════════════════
+   THEME TOKENS — LIGHT
+═══════════════════════════════════════ */
+[data-theme="light"] {
+  --bg:      #eaeef6;
+  --bg2:     #e1e7f2;
+  --bg3:     #f1f4fa;
+  --card:    #ffffff;
+  --card2:   #ffffff;
+  --border:  #e4e9f2;
+  --border2: #d3dbea;
+
+  --accent:  #2f6bf0;
+  --accent2: #6d3cf0;
+  --accent3: #0aa886;
+  --success: #0aa886;
+  --warn:    #d68209;
+  --danger:  #e0483d;
+
+  --text:    #0c1424;
+  --text2:   #51607a;
+  --text3:   #8b98ad;
+
+  --sidebar-glass: rgba(255, 255, 255, 0.88);
+  --topbar-glass:  rgba(255, 255, 255, 0.85);
+
+  --glow-blue:   rgba(47, 107, 240, 0.10);
+  --glow-teal:   rgba(5, 159, 120, 0.08);
+  --glow-violet: rgba(124, 58, 237, 0.08);
+
+  --shadow-sm: 0 1px 3px rgba(20,33,66,0.06);
+  --shadow:    0 6px 22px rgba(20,33,66,0.09);
+  --shadow-lg: 0 18px 44px rgba(20,33,66,0.13);
+  --ring:      rgba(47,107,240,0.22);
+}
+
+/* ═══════════════════════════════════════
+   RANG KOMBINATSIYALARI (data-accent)
+   Light/Dark rejim ustiga qo'shiladi — foydalanuvchi o'ziga mos rangni tanlaydi.
+   Standart (data-accent yo'q yoki "blue") — ko'k.
+═══════════════════════════════════════ */
+[data-accent="emerald"] {
+  --accent:#10c98b; --accent2:#0ea472; --accent3:#5eead4;
+  --glow-blue:rgba(16,201,139,.20); --glow-teal:rgba(94,234,212,.14); --glow-violet:rgba(14,164,114,.14);
+  --ring:rgba(16,201,139,.32);
+}
+[data-accent="violet"] {
+  --accent:#8b5cf6; --accent2:#a855f7; --accent3:#22d3ee;
+  --glow-blue:rgba(139,92,246,.22); --glow-teal:rgba(34,211,238,.14); --glow-violet:rgba(168,85,247,.18);
+  --ring:rgba(139,92,246,.34);
+}
+[data-accent="rose"] {
+  --accent:#f43f6e; --accent2:#fb5c85; --accent3:#f59e0b;
+  --glow-blue:rgba(244,63,110,.20); --glow-teal:rgba(245,158,11,.14); --glow-violet:rgba(251,92,133,.16);
+  --ring:rgba(244,63,110,.32);
+}
+[data-accent="amber"] {
+  --accent:#f5920b; --accent2:#f97316; --accent3:#facc15;
+  --glow-blue:rgba(245,146,11,.20); --glow-teal:rgba(250,204,21,.14); --glow-violet:rgba(249,115,22,.16);
+  --ring:rgba(245,146,11,.32);
+}
+[data-accent="cyan"] {
+  --accent:#0ea5e9; --accent2:#2563eb; --accent3:#22d3ee;
+  --glow-blue:rgba(14,165,233,.20); --glow-teal:rgba(34,211,238,.14); --glow-violet:rgba(37,99,235,.16);
+  --ring:rgba(14,165,233,.32);
+}
+
+/* ═══════════════════════════════════════
+   RESET + BASE
+═══════════════════════════════════════ */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif,
+               'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla';
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transition: background 0.35s ease, color 0.35s ease;
+}
+
+/* Emoji uchun maxsus klass — iOS/Apple emojilarini afzal ko'radi.
+   Apple qurilmalarda haqiqiy iOS emoji chiqadi; Windows/Android'da
+   tizimning eng yaxshi rangli emoji shrifti ishlatiladi. */
+.emoji, .nav-item i.emoji {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji',
+               'Twemoji Mozilla', sans-serif;
+  font-style: normal;
+}
+
+[data-theme="dark"] body {
+  background:
+    radial-gradient(ellipse 900px 600px at 10% -5%,  var(--glow-blue)   0%, transparent 55%),
+    radial-gradient(ellipse 700px 700px at 92% 105%, var(--glow-teal)   0%, transparent 55%),
+    radial-gradient(ellipse 500px 500px at 50% 50%,  var(--glow-violet) 0%, transparent 60%),
+    var(--bg);
+}
+
+[data-theme="light"] body {
+  background:
+    radial-gradient(ellipse 800px 500px at 15% 0%,   rgba(59,110,240,0.06)  0%, transparent 55%),
+    radial-gradient(ellipse 600px 600px at 90% 100%, rgba(10,173,129,0.05)  0%, transparent 55%),
+    var(--bg);
+}
+
+/* ═══════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════ */
+.sidebar {
+  position: fixed;
+  left: 0; top: 0;
+  width: 252px;
+  height: 100vh;
+  background: var(--sidebar-glass);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  transition: transform 0.3s cubic-bezier(.4,0,.2,1),
+              background 0.35s ease,
+              border-color 0.35s ease;
+}
+
+/* logo */
+.sidebar-logo {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo a {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-decoration: none;
+  color: var(--text);
+}
+.logo-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  box-shadow: 0 0 16px var(--glow-blue);
+  transition: box-shadow 0.3s;
+  overflow: hidden;
+}
+.logo-icon img { width: 100%; height: 100%; object-fit: contain; border-radius: 10px; mix-blend-mode: multiply; }
+.logo-text { font-size: 15px; font-weight: 700; letter-spacing: -0.2px; }
+
+/* brand logo - swaps image + box background based on theme so it stays readable
+   on both white and dark backgrounds everywhere (zavod, dokon, egasi, sotuvchi, yetkazib beruvchi) */
+.brand-logo-box {
+  width:100%;
+  max-width:190px;
+  height:104px;
+  border-radius:16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  margin:0 auto 4px;
+  box-shadow:0 8px 24px rgba(91,138,245,0.25);
+  padding:4px;
+  transition: background 0.3s ease;
+}
+[data-theme="light"] .brand-logo-box { background:transparent; box-shadow:none; }
+[data-theme="dark"]  .brand-logo-box { background:transparent; box-shadow:none; }
+.brand-logo-box img { max-width:100%; max-height:100%; display:none; border-radius:12px; }
+[data-theme="light"] .brand-logo-box .brand-logo-light { display:block; }
+[data-theme="dark"]  .brand-logo-box .brand-logo-dark  { display:block; border-radius:12px; }
+
+
+/* nav */
+.sidebar-nav { flex: 1; padding: 10px 10px; overflow-y: auto; }
+.nav-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 0 10px;
+  margin: 16px 0 5px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--text2);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background 0.18s, color 0.18s, transform 0.18s;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+  position: relative;
+  overflow: hidden;
+}
+.nav-item::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+  transform: scaleY(0);
+  transition: transform 0.2s cubic-bezier(.4,0,.2,1);
+}
+.nav-item:hover {
+  background: var(--bg3);
+  color: var(--text);
+  transform: translateX(2px);
+}
+.nav-item.active {
+  background: linear-gradient(90deg, var(--glow-blue), transparent);
+  color: var(--accent);
+  border-color: var(--border2);
+}
+.nav-item.active::before { transform: scaleY(1); }
+.nav-item i { width: 16px; text-align: center; font-size: 13px; }
+
+/* Yig'iladigan navigatsiya guruhi (Buyurtmalar, Sotuvchilar...) */
+.nav-group { display: flex; flex-direction: column; }
+.nav-group-btn {
+  width: 100%; background: none; font-family: inherit; text-align: left; cursor: pointer;
+}
+.nav-group-btn .nav-caret {
+  margin-left: auto; font-size: 10px; color: var(--text3);
+  transition: transform 0.22s ease; width: auto;
+}
+.nav-group.open > .nav-group-btn .nav-caret { transform: rotate(180deg); }
+.nav-group.open > .nav-group-btn { color: var(--text); }
+.nav-sub {
+  display: flex; flex-direction: column; overflow: hidden;
+  max-height: 0; transition: max-height 0.26s ease; padding-left: 14px;
+}
+.nav-group.open > .nav-sub { max-height: 340px; }
+.nav-sub .nav-item { font-size: 13px; padding: 8px 12px; }
+
+/* footer */
+.sidebar-footer { padding: 12px; border-top: 1px solid var(--border); margin-top: auto; }
+.user-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  transition: background 0.2s;
+}
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13px; flex-shrink: 0;
+  box-shadow: 0 0 12px var(--glow-violet);
+}
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-rol  { font-size: 11px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.logout-btn {
+  color: var(--text3); text-decoration: none;
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  transition: color 0.2s, background 0.2s;
+}
+.logout-btn:hover { color: var(--danger); background: rgba(239,68,68,0.12); }
+.profile-btn {
+  color: var(--text3); text-decoration: none;
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  transition: color 0.2s, background 0.2s;
+}
+.profile-btn:hover { color: var(--accent); background: var(--glow-blue); }
+
+/* ═══════════════════════════════════════
+   MAIN LAYOUT
+═══════════════════════════════════════ */
+.main { margin-left: 252px; min-height: 100vh; }
+
+/* ═══════════════════════════════════════
+   TOPBAR
+═══════════════════════════════════════ */
+.topbar {
+  position: sticky; top: 0;
+  background: var(--topbar-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 13px 28px;
+  display: flex; align-items: center; justify-content: space-between;
+  z-index: 50;
+  transition: background 0.35s ease, border-color 0.35s ease;
+}
+.page-title { font-size: 17px; font-weight: 700; }
+.page-sub   { font-size: 12px; color: var(--text2); }
+
+/* ═══════════════════════════════════════
+   DARK / LIGHT TOGGLE BUTTON
+═══════════════════════════════════════ */
+.theme-toggle {
+  position: relative;
+  width: 62px; height: 30px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.3s, border-color 0.3s;
+  outline: none;
+  padding: 0;
+  overflow: hidden;
+}
+.theme-toggle:hover { border-color: var(--border2); }
+.theme-toggle:focus-visible { box-shadow: 0 0 0 3px var(--ring); }
+.theme-toggle .tt-track {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 8px; font-size: 12px; line-height: 1;
+  pointer-events: none;
+}
+.theme-toggle .tt-track span { opacity: 0.42; transition: opacity 0.3s; }
+[data-theme="light"] .theme-toggle .tt-sun  { opacity: 1; }
+[data-theme="dark"]  .theme-toggle .tt-moon { opacity: 1; }
+.theme-toggle .knob {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  z-index: 2;
+  transform: translateX(32px);   /* dark: o'ngda (oy tomonda) */
+  transition: transform 0.4s cubic-bezier(.34,1.56,.64,1), background 0.3s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+}
+[data-theme="light"] .theme-toggle .knob {
+  transform: translateX(0);      /* light: chapda (quyosh tomonda) */
+  background: linear-gradient(135deg, #ffb020, #f97316);
+}
+
+/* ═══════════════════════════════════════
+   TOPBAR RIGHT AREA
+═══════════════════════════════════════ */
+.topbar-right {
+  display: flex; align-items: center; gap: 10px;
+}
+
+/* ═══════════════════════════════════════
+   CONTENT
+═══════════════════════════════════════ */
+.content { padding: 24px 28px; }
+
+/* ═══════════════════════════════════════
+   CARDS
+═══════════════════════════════════════ */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.35s, border-color 0.35s, box-shadow 0.25s, transform 0.25s;
+}
+.card:hover { box-shadow: var(--shadow); }
+.card-title {
+  font-size: 14px; font-weight: 700;
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text);
+}
+.card-title i { color: var(--accent); }
+
+/* ═══════════════════════════════════════
+   STAT CARDS
+═══════════════════════════════════════ */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px; margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s, background 0.35s;
+  position: relative; overflow: hidden;
+}
+.stat-card::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  border-radius: 14px 14px 0 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.stat-card:hover { transform: translateY(-3px); }
+.stat-card:hover::after { opacity: 1; }
+.stat-card.blue::after  { background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+.stat-card.green::after { background: var(--accent3); box-shadow: 0 0 12px var(--accent3); }
+.stat-card.warn::after  { background: var(--warn);    box-shadow: 0 0 12px var(--warn); }
+.stat-card.purple::after{ background: var(--accent2); box-shadow: 0 0 12px var(--accent2); }
+.stat-card:hover.blue  { box-shadow: 0 8px 28px var(--glow-blue); }
+.stat-card:hover.green { box-shadow: 0 8px 28px var(--glow-teal); }
+.stat-card:hover.warn  { box-shadow: 0 8px 28px rgba(245,166,35,0.12); }
+.stat-card:hover.purple{ box-shadow: 0 8px 28px var(--glow-violet); }
+.stat-label  { font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+.stat-value  { font-size: 26px; font-weight: 800; line-height: 1; }
+.stat-sub    { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.stat-card.blue   .stat-value { color: var(--accent); }
+.stat-card.green  .stat-value { color: var(--accent3); }
+.stat-card.warn   .stat-value { color: var(--warn); }
+.stat-card.purple .stat-value { color: var(--accent2); }
+
+/* ═══════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 10px 20px; border-radius: 11px;
+  font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600;
+  line-height: 1.1; white-space: nowrap;
+  cursor: pointer; border: 1px solid transparent; text-decoration: none;
+  transition: transform 0.18s cubic-bezier(.34,1.56,.64,1),
+              box-shadow 0.2s, background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
+}
+.btn:active { transform: scale(0.96); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+.btn i { font-size: 0.92em; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(79,140,255,0.32);
+}
+.btn-primary:hover { box-shadow: 0 8px 24px rgba(79,140,255,0.45); transform: translateY(-2px); }
+.btn-primary:active { transform: translateY(0) scale(0.97); }
+.btn-outline {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  box-shadow: var(--shadow-sm);
+}
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); background: var(--glow-blue); transform: translateY(-1px); }
+.btn-danger  { background: linear-gradient(135deg, var(--danger), #e84343); color: #fff; box-shadow: 0 4px 16px rgba(255,92,92,0.30); }
+.btn-danger:hover  { box-shadow: 0 8px 24px rgba(255,92,92,0.42); transform: translateY(-2px); }
+.btn-success { background: linear-gradient(135deg, var(--accent3), #12c49f); color: #fff; box-shadow: 0 4px 16px rgba(24,216,178,0.30); }
+.btn-success:hover { box-shadow: 0 8px 24px rgba(24,216,178,0.42); transform: translateY(-2px); }
+.btn-sm { padding: 7px 14px; font-size: 13px; border-radius: 9px; }
+.btn-lg { padding: 13px 26px; font-size: 15px; border-radius: 13px; }
+.btn-block { width: 100%; }
+.btn:disabled, .btn.disabled { opacity: 0.55; cursor: not-allowed; transform: none !important; box-shadow: none; }
+
+/* ═══════════════════════════════════════
+   KIRISH ANIMATSIYALARI (page entrance)
+═══════════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn2 {
+  from { opacity: 0; } to { opacity: 1; }
+}
+@keyframes popIn {
+  0%   { opacity: 0; transform: scale(0.94) translateY(10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+/* Content ichidagi asosiy bloklar ochilganda suzib chiqadi */
+.content > .card,
+.content > .stats-grid,
+.content > .grid-2,
+.content > .grid-3,
+.content > .table-wrap {
+  animation: fadeUp 0.5s cubic-bezier(.22,1,.36,1) both;
+}
+/* Stat kartalar ketma-ket (stagger) chiqadi — jonli ko'rinish */
+.stats-grid .stat-card { animation: popIn 0.5s cubic-bezier(.22,1,.36,1) both; }
+.stats-grid .stat-card:nth-child(1) { animation-delay: 0.04s; }
+.stats-grid .stat-card:nth-child(2) { animation-delay: 0.10s; }
+.stats-grid .stat-card:nth-child(3) { animation-delay: 0.16s; }
+.stats-grid .stat-card:nth-child(4) { animation-delay: 0.22s; }
+.stats-grid .stat-card:nth-child(5) { animation-delay: 0.28s; }
+.stats-grid .stat-card:nth-child(6) { animation-delay: 0.34s; }
+/* Jadval qatorlari yumshoq paydo bo'ladi */
+tbody tr, table tr { animation: fadeIn2 0.4s ease both; }
+/* Alert/toast biroz e'tibor tortadi */
+.alert { animation: fadeUp 0.4s cubic-bezier(.22,1,.36,1) both; }
+
+/* Harakatni kamaytirish yoqilган bo'lsa — animatsiyalarni o'chiramiz (a11y) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ═══════════════════════════════════════
+   FORMS
+═══════════════════════════════════════ */
+.form-group  { margin-bottom: 16px; }
+.form-label  {
+  display: block; font-size: 13px; font-weight: 600;
+  color: var(--text2); margin-bottom: 6px;
+}
+.form-control {
+  width: 100%; padding: 10px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font-family: 'Outfit', sans-serif; font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.form-control:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+.form-control::placeholder { color: var(--text3); }
+select.form-control option { background: var(--bg2); }
+
+/* ═══════════════════════════════════════
+   TABLE
+═══════════════════════════════════════ */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left; padding: 10px 14px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+  text-transform: uppercase; color: var(--text3);
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 11px 14px; font-size: 14px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+tr:hover td { background: var(--bg3); }
+tr:last-child td { border-bottom: none; }
+
+/* ═══════════════════════════════════════
+   ALERTS
+═══════════════════════════════════════ */
+.alert {
+  padding: 12px 16px; border-radius: 10px;
+  margin-bottom: 14px; font-size: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.alert-error   { background: rgba(239,68,68,0.10);  border: 1px solid rgba(239,68,68,0.28);  color: #fca5a5; }
+.alert-success { background: rgba(16,217,160,0.10); border: 1px solid rgba(16,217,160,0.28); color: #5eead4; }
+.alert-warning { background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.28); color: #fcd34d; }
+.alert-info    { background: rgba(91,138,245,0.10); border: 1px solid rgba(91,138,245,0.28); color: var(--accent); }
+[data-theme="light"] .alert-error   { color: #b91c1c; }
+[data-theme="light"] .alert-success { color: #0aad81; }
+[data-theme="light"] .alert-warning { color: #b45309; }
+[data-theme="light"] .alert-info    { color: var(--accent); }
+
+/* ═══════════════════════════════════════
+   STATUS BADGES
+═══════════════════════════════════════ */
+.status {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+}
+.status-green  { background: rgba(16,217,160,0.14); color: var(--accent3); }
+.status-warn   { background: rgba(245,158,11,0.14); color: var(--warn); }
+.status-red    { background: rgba(239,68,68,0.14);  color: var(--danger); }
+.status-blue   { background: rgba(91,138,245,0.14); color: var(--accent); }
+.status-purple { background: rgba(124,58,237,0.14); color: var(--accent2); }
+
+/* ═══════════════════════════════════════
+   GRIDS
+═══════════════════════════════════════ */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr;       gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr;   gap: 20px; }
+
+/* ═══════════════════════════════════════
+   TRADING BAR CHART (yillik savdo) — chap Y-o'qi + pastda oylar
+   30 mln = to'la (100%). Rang: 0–9🔴 9–20🟡 20–30+🟢
+═══════════════════════════════════════ */
+.tchart{display:flex;gap:10px;height:250px;padding-top:6px;align-items:flex-start;}
+.tc-yaxis{display:flex;flex-direction:column;justify-content:space-between;
+  height:210px;font-size:10px;font-weight:600;color:var(--text3);text-align:right;
+  flex-shrink:0;min-width:42px;padding-top:1px;}
+.tc-plot{position:relative;flex:1;height:210px;}
+.tc-grid{position:absolute;inset:0;pointer-events:none;}
+.tc-grid i{position:absolute;left:0;right:0;border-top:1px dashed var(--border);}
+.tc-grid i.base{border-top:1px solid var(--border2);}
+.tc-bars{position:absolute;inset:0;display:flex;align-items:flex-end;gap:5px;}
+.tc-col{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;
+  align-items:center;position:relative;cursor:default;}
+.tc-bar{width:82%;max-width:34px;min-height:3px;border-radius:6px 6px 0 0;position:relative;
+  transition:height .7s cubic-bezier(.22,1,.36,1),filter .2s,transform .2s;}
+.tc-col:hover .tc-bar{filter:brightness(1.15);transform:scaleY(1.02);transform-origin:bottom;}
+.tc-bar.g{background:linear-gradient(180deg,var(--accent3),rgba(24,216,178,.16));border-top:2px solid var(--accent3);box-shadow:0 0 14px rgba(24,216,178,.30);}
+.tc-bar.y{background:linear-gradient(180deg,var(--warn),rgba(255,176,32,.16));border-top:2px solid var(--warn);box-shadow:0 0 14px rgba(255,176,32,.26);}
+.tc-bar.r{background:linear-gradient(180deg,var(--danger),rgba(255,92,92,.16));border-top:2px solid var(--danger);box-shadow:0 0 14px rgba(255,92,92,.24);}
+.tc-bar.z{background:var(--bg3);border-top:1px solid var(--border2);}
+.tc-bar.future{background:repeating-linear-gradient(45deg,var(--bg3),var(--bg3) 5px,transparent 5px,transparent 10px);border:1px dashed var(--border2);opacity:.5;height:100%;border-radius:6px 6px 0 0;}
+.tc-month{position:absolute;top:calc(100% + 7px);font-size:9.5px;font-weight:600;color:var(--text3);white-space:nowrap;}
+.tc-tip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:6px;
+  background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;
+  font-size:11px;white-space:nowrap;color:var(--text);box-shadow:var(--shadow);
+  opacity:0;pointer-events:none;transition:opacity .2s;z-index:5;}
+.tc-col:hover .tc-tip{opacity:1;}
+.tc-legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-size:12px;color:var(--text2);}
+.tc-legend span{display:inline-flex;align-items:center;gap:6px;}
+.tc-legend i{width:11px;height:11px;border-radius:3px;display:inline-block;}
+@media(max-width:600px){.tc-month{font-size:8px;}.tc-bar{width:90%;}.tc-yaxis{min-width:34px;font-size:9px;}}
+
+/* ═══════════════════════════════════════
+   TOAST
+═══════════════════════════════════════ */
+#toast-container {
+  position: fixed; top: 16px; right: 16px;
+  z-index: 9999;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+  padding: 12px 18px; border-radius: 12px;
+  font-size: 14px; font-weight: 500;
+  display: flex; align-items: center; gap: 8px;
+  animation: slideIn 0.3s cubic-bezier(.4,0,.2,1);
+  min-width: 260px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+.toast-success { background: var(--accent3); color: #fff; }
+.toast-error   { background: var(--danger);  color: #fff; }
+.toast-info    { background: var(--accent);  color: #fff; }
+@keyframes slideIn {
+  from { transform: translateX(110%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* ═══════════════════════════════════════
+   SPINNER
+═══════════════════════════════════════ */
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════
+   MOBILE HAMBURGER + OVERLAY
+═══════════════════════════════════════ */
+.hamburger {
+  display: none; background: none; border: none;
+  color: var(--text); font-size: 20px; cursor: pointer;
+  padding: 4px 6px; border-radius: 6px;
+  transition: background 0.2s;
+}
+.hamburger:hover { background: var(--bg3); }
+.overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 99;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ═══════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .overlay.open { display: block; }
+  .main { margin-left: 0; }
+  .hamburger { display: block; }
+  .content { padding: 14px; }
+  .topbar { padding: 12px 14px; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ═══════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════ */
+::-webkit-scrollbar       { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ═══════════════════════════════════════
+   LANGUAGE SWITCHER (bayroqli)
+═══════════════════════════════════════ */
+.lang-switch {
+  display: inline-flex; align-items: center;
+  gap: 3px; padding: 3px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.lang-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px 4px 6px;
+  border: none; background: transparent; cursor: pointer;
+  border-radius: 999px;
+  color: var(--text2);
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
+  transition: background 0.2s, color 0.2s;
+  line-height: 1;
+}
+.lang-btn:hover { background: var(--bg2); color: var(--text); }
+.lang-btn.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+  box-shadow: 0 2px 10px var(--glow-blue);
+}
+.lang-flag {
+  display: inline-flex; align-items: center;
+  border-radius: 3px; overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.12);
+  line-height: 0;
+}
+.lang-flag svg { display: block; }
+.lang-code { display: inline-block; }
+.lang-switch-floating {
+  position: fixed; top: 16px; right: 16px; z-index: 9998;
+  background: var(--card);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+}
+@media (max-width: 560px) {
+  .lang-btn .lang-code { display: none; }
+  .lang-btn { padding: 5px; }
+}
+
+/* ═══════════════════════════════════════
+   TRANSITION — theme switch on all cards
+═══════════════════════════════════════ */
+.card, .stat-card, .sidebar, .topbar,
+.form-control, .nav-item, .user-card,
+td, th, .alert, .status {
+  transition-property: background, border-color, color, box-shadow;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}
+</style>
+{% block extra_css %}{% endblock %}
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+{% if user.is_authenticated %}
+<aside class="sidebar" id="sidebar">
+{% load static %}
+
+<div class="sidebar-logo">
+    <a href="/">
+        <div class="brand-logo-box">
+            <img src="{% static 'logol.png' %}" alt="Savdoyim" class="brand-logo-light">
+            <img src="{% static 'logod.png' %}" alt="Savdoyim" class="brand-logo-dark">
+        </div>
+    </a>
+</div>
+
+<nav class="sidebar-nav">
+    {% if user.rol == 'dokon_egasi' %}
+      <div class="nav-label">Asosiy</div>
+      <a href="{% url 'dokon_egasi_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dokon_egasi_dashboard' %}active{% endif %}"><i class="fas fa-home"></i> Bosh sahifa</a>
+      <a href="{% url 'kassa' %}" class="nav-item {% if 'kassa' in request.path and 'hisobot' not in request.path and 'qarz' not in request.path and 'qaytarish' not in request.path %}active{% endif %}"><i class="fas fa-cash-register"></i> Kassa</a>
+      <a href="{% url 'mahsulot_royxat' %}" class="nav-item {% if 'mahsulot' in request.path and 'skanner' not in request.path and 'jonatma-qabul' not in request.path %}active{% endif %}"><i class="fas fa-boxes"></i> Mahsulotlar</a>
+      <a href="{% url 'inventarizatsiya_royxat' %}" class="nav-item {% if 'inventarizatsiya' in request.path %}active{% endif %}"><i class="fas fa-clipboard-check"></i> Inventarizatsiya</a>
+      <div class="nav-label">Moliya</div>
+      <a href="{% url 'qarz_royxat' %}" class="nav-item {% if 'qarzlar' in request.path %}active{% endif %}"><i class="fas fa-file-invoice-dollar"></i> Qarz Daftar</a>
+      <a href="{% url 'soliq_dashboard' %}" class="nav-item {% if 'soliq' in request.path %}active{% endif %}"><i class="fas fa-percent"></i> Soliq</a>
+      <a href="{% url 'hisobot' %}" class="nav-item {% if 'hisobot' in request.path %}active{% endif %}"><i class="fas fa-chart-bar"></i> Hisobotlar</a>
+      <div class="nav-label">Boshqaruv</div>
+
+      <div class="nav-group {% if 'jonatma-qabul' in request.path or 'order/buyurtma' in request.path or 'dokon-buyurtmalari' in request.path or 'qaytarish' in request.path %}open{% endif %}">
+        <button type="button" class="nav-item nav-group-btn {% if 'jonatma-qabul' in request.path or 'order/buyurtma' in request.path or 'dokon-buyurtmalari' in request.path or 'qaytarish' in request.path %}active{% endif %}" onclick="navGroupToggle(this)">
+          <i class="fas fa-box-open"></i> Buyurtmalar <i class="fas fa-chevron-down nav-caret"></i>
+        </button>
+        <div class="nav-sub">
+          <a href="{% url 'jonatma_qabul_dokon' %}" class="nav-item {% if 'jonatma-qabul' in request.path %}active{% endif %}"><i class="fas fa-qrcode"></i> Jo'natma qabul</a>
+          <a href="{% url 'qaytarish' %}" class="nav-item {% if 'qaytarish' in request.path %}active{% endif %}"><i class="fas fa-rotate-left"></i> Mahsulot qaytarish</a>
+          <a href="{% url 'buyurtmalar' %}" class="nav-item {% if 'order/buyurtma' in request.path %}active{% endif %}"><i class="fas fa-shopping-cart"></i> Zavodga buyurtma</a>
+          <a href="{% url 'sotuvchi_mijoz_buyurtmalar' %}" class="nav-item {% if 'dokon-buyurtmalari' in request.path %}active{% endif %}"><i class="fas fa-receipt"></i> Mijoz buyurtmalari</a>
+        </div>
+      </div>
+
+      <div class="nav-group {% if 'sotuvchilar' in request.path %}open{% endif %}">
+        <button type="button" class="nav-item nav-group-btn {% if 'sotuvchilar' in request.path %}active{% endif %}" onclick="navGroupToggle(this)">
+          <i class="fas fa-users"></i> Sotuvchilar <i class="fas fa-chevron-down nav-caret"></i>
+        </button>
+        <div class="nav-sub">
+          <a href="{% url 'sotuvchi_ruxsat' %}" class="nav-item {% if 'sotuvchilar' in request.path and 'kassa' not in request.path %}active{% endif %}"><i class="fas fa-user-plus"></i> Xodimlar</a>
+          <a href="{% url 'sotuvchilar_kpi' %}" class="nav-item {% if 'kassa/sotuvchilar' in request.path %}active{% endif %}"><i class="fas fa-trophy"></i> Reyting</a>
+        </div>
+      </div>
+
+      <a href="{% url 'chat_royxat' %}" class="nav-item {% if 'chat' in request.path %}active{% endif %}"><i class="fas fa-comments"></i> Chat</a>
+
+    {% elif user.rol == 'sotuvchi' %}
+      <div class="nav-label">Asosiy</div>
+      <a href="{% url 'sotuvchi_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'sotuvchi_dashboard' %}active{% endif %}"><i class="fas fa-home"></i> Bosh sahifa</a>
+      <a href="{% url 'kassa' %}" class="nav-item {% if request.resolver_match.url_name == 'kassa' %}active{% endif %}"><i class="fas fa-cash-register"></i> Kassa</a>
+      <a href="{% url 'mahsulot_royxat' %}" class="nav-item {% if 'mahsulot' in request.path and 'skanner' not in request.path %}active{% endif %}"><i class="fas fa-boxes"></i> Mahsulotlar</a>
+      <a href="{% url 'qarz_royxat' %}" class="nav-item {% if 'qarzlar' in request.path %}active{% endif %}"><i class="fas fa-file-invoice-dollar"></i> Qarz Daftar</a>
+      <a href="{% url 'qaytarish' %}" class="nav-item {% if 'qaytarish' in request.path %}active{% endif %}"><i class="fas fa-rotate-left"></i> Qaytarish</a>
+      <a href="{% url 'sotuvchilar_kpi' %}" class="nav-item {% if 'kassa/sotuvchilar' in request.path %}active{% endif %}"><i class="fas fa-trophy"></i> Sotuvchilar reytingi</a>
+      <a href="{% url 'sotuvchi_mijoz_buyurtmalar' %}" class="nav-item {% if 'dokon-buyurtmalari' in request.path %}active{% endif %}"><i class="fas fa-receipt"></i> Mijoz buyurtmalari</a>
+      <a href="{% url 'skanner' %}" class="nav-item {% if 'skanner' in request.path %}active{% endif %}"><i class="fas fa-barcode"></i> Skanner</a>
+      <a href="{% url 'jonatma_qabul_dokon' %}" class="nav-item {% if 'jonatma-qabul' in request.path %}active{% endif %}"><i class="fas fa-qrcode"></i> Jo'natma qabul</a>
+      <a href="{% url 'chat_royxat' %}" class="nav-item {% if 'chat' in request.path %}active{% endif %}"><i class="fas fa-comments"></i> Chat</a>
+
+    {% elif user.rol == 'zavod' %}
+      <div class="nav-label">Asosiy</div>
+      <a href="{% url 'zavod_dashboard' %}" class="nav-item {% if 'dashboard' in request.path %}active{% endif %}"><i class="fas fa-industry"></i> Bosh sahifa</a>
+      <a href="{% url 'mahsulot_royxat' %}" class="nav-item {% if 'mahsulot' in request.path and 'skanner' not in request.path %}active{% endif %}"><i class="fas fa-boxes"></i> Mahsulotlar</a>
+      <a href="{% url 'buyurtmalar' %}" class="nav-item {% if 'buyurtma' in request.path %}active{% endif %}"><i class="fas fa-shopping-cart"></i> Buyurtmalar</a>
+      <a href="{% url 'zavod_analitika' %}" class="nav-item {% if 'analitika' in request.path %}active{% endif %}"><i class="fas fa-chart-line"></i> Analitika</a>
+      <a href="{% url 'skanner' %}" class="nav-item {% if 'skanner' in request.path %}active{% endif %}"><i class="fas fa-barcode"></i> Skanner</a>
+      <div class="nav-label">Boshqaruv</div>
+      <a href="{% url 'zavod_yetkazuvchilar' %}" class="nav-item {% if 'yetkazuvchilar' in request.path %}active{% endif %}"><i class="fas fa-user-tie"></i> Yetkazuvchilar</a>
+      <a href="{% url 'zavod_jonatma_yaratish' %}" class="nav-item {% if 'jonatish' in request.path %}active{% endif %}"><i class="fas fa-dolly"></i> Jo'natish</a>
+      <a href="{% url 'chat_royxat' %}" class="nav-item {% if 'chat' in request.path %}active{% endif %}"><i class="fas fa-comments"></i> Chat</a>
+
+    {% elif user.rol == 'yetkazib_beruvchi' %}
+      <div class="nav-label">Asosiy</div>
+      <a href="{% url 'yetkazuvchi_dashboard' %}" class="nav-item {% if 'yetkazib' in request.path %}active{% endif %}"><i class="fas fa-truck"></i> Bosh sahifa</a>
+      <a href="{% url 'buyurtmalar' %}" class="nav-item {% if 'buyurtma' in request.path %}active{% endif %}"><i class="fas fa-list"></i> Buyurtmalar</a>
+      <a href="{% url 'skanner' %}" class="nav-item {% if 'skanner' in request.path %}active{% endif %}"><i class="fas fa-barcode"></i> Skanner</a>
+      <div class="nav-label">Zavod</div>
+      <a href="{% url 'zavod_sorov_yuborish' %}" class="nav-item {% if 'sorov' in request.path %}active{% endif %}"><i class="fas fa-paper-plane"></i> Zavodga so'rov</a>
+      <a href="{% url 'chat_royxat' %}" class="nav-item {% if 'chat' in request.path %}active{% endif %}"><i class="fas fa-comments"></i> Chat</a>
+
+    {% elif user.rol == 'mijoz' %}
+      <div class="nav-label">Asosiy</div>
+      <a href="{% url 'mijoz_dashboard' %}" class="nav-item {% if 'mijoz/' in request.path %}active{% endif %}"><i class="fas fa-search"></i> Mahsulot Qidirish</a>
+      <a href="{% url 'savat' %}" class="nav-item {% if 'savat' in request.path %}active{% endif %}">
+        <i class="fas fa-cart-shopping"></i> Savat
+        {% if savat_soni %}<span style="margin-left:auto;background:var(--accent);color:#fff;border-radius:20px;font-size:10px;font-weight:700;padding:1px 7px;">{{ savat_soni }}</span>{% endif %}
+      </a>
+      <a href="{% url 'mijoz_buyurtmalarim' %}" class="nav-item {% if 'mening-buyurtmalarim' in request.path %}active{% endif %}"><i class="fas fa-bag-shopping"></i> Buyurtmalarim</a>
+      <a href="{% url 'sodiqlik' %}" class="nav-item {% if 'sodiqlik' in request.path %}active{% endif %}"><i class="fas fa-gift" style="color:#fbbf24;"></i> Sodiqlik ballari</a>
+    {% endif %}
+
+    <div class="nav-label">Boshqa</div>
+    <a href="{% url 'bildirishnomalar' %}" class="nav-item {% if 'bildirishnomalar' in request.path %}active{% endif %}">
+      <i class="fas fa-bell"></i> Bildirishnomalar
+      {% if oqilmagan_bildirishnoma %}<span style="margin-left:auto;background:var(--danger);color:#fff;border-radius:20px;font-size:10px;font-weight:700;padding:1px 7px;">{{ oqilmagan_bildirishnoma }}</span>{% endif %}
+    </a>
+    <a href="{% url 'settings' %}" class="nav-item {% if 'settings' in request.path %}active{% endif %}">
+      <i class="fas fa-gear"></i> Sozlamalar
+    </a>
+</nav>
+
+<div class="sidebar-footer">
+    <div class="user-card">
+      <div class="avatar">{{ user.first_name|first|default:user.username|first|upper }}</div>
+      <div class="user-info">
+        <div class="user-name">{{ user.first_name|default:user.username }}</div>
+        <div class="user-rol">{{ user.get_rol_display }}</div>
+      </div>
+      <a href="{% url 'profil' %}" class="profile-btn" title="Profil"><i class="fas fa-user"></i></a>
+      <a href="{% url 'logout' %}" class="logout-btn" title="Chiqish"><i class="fas fa-sign-out-alt"></i></a>
+    </div>
+</div>
+</aside>
+
+{% elif mehmon %}
+{# ═══════ MEHMON (GUEST) CHROME — tizimga kirmagan foydalanuvchi ═══════ #}
+{% load static %}
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <a href="{% url 'mehmon_dashboard' %}">
+      <div class="brand-logo-box">
+        <img src="{% static 'logol.png' %}" alt="Savdoyim" class="brand-logo-light">
+        <img src="{% static 'logod.png' %}" alt="Savdoyim" class="brand-logo-dark">
+      </div>
+    </a>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-label">Do'kon</div>
+    <a href="{% url 'mehmon_dashboard' %}" class="nav-item {% if 'mehmon' in request.path %}active{% endif %}"><i class="fas fa-search"></i> Mahsulot qidirish</a>
+    <div class="nav-label">Hisob</div>
+    <a href="{% url 'login' %}" class="nav-item"><i class="fas fa-right-to-bracket"></i> Kirish</a>
+    <a href="{% url 'register' %}" class="nav-item"><i class="fas fa-user-plus"></i> Ro'yxatdan o'tish</a>
+    <a href="{% url 'about' %}" class="nav-item {% if 'about' in request.path %}active{% endif %}"><i class="fas fa-circle-info"></i> Biz haqimizda</a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-card" style="flex-wrap:wrap;gap:8px;">
+      <div class="avatar"><i class="fas fa-user"></i></div>
+      <div class="user-info">
+        <div class="user-name">Mehmon</div>
+        <div class="user-rol">Tizimga kirmagan</div>
+      </div>
+      <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;"><i class="fas fa-right-to-bracket"></i> Kirish</a>
+    </div>
+  </div>
+</aside>
+{% else %}
+{% block auth_content %}{% endblock %}
+{% endif %}
+
+{# ═══════ UMUMIY MAIN — kirgan foydalanuvchi va mehmon uchun bir xil ═══════ #}
+{% if user.is_authenticated or mehmon %}
+<main class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <button class="hamburger" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+      <div>
+        <div class="page-title">{% block page_title %}Savdoyim{% endblock %}</div>
+        <div class="page-sub">{% block page_sub %}{% endblock %}</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      {% if user.is_authenticated %}{% block topbar_actions %}{% endblock %}{% endif %}
+      {% if mehmon %}<a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-outline btn-sm"><i class="fas fa-right-to-bracket"></i> Kirish</a>{% endif %}
+      <!-- DARK / LIGHT MODE TOGGLE -->
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Mavzuni almashtirish" aria-label="Kunduzgi / tungi rejim">
+        <span class="tt-track">
+          <span class="tt-sun emoji">☀️</span>
+          <span class="tt-moon emoji">🌙</span>
+        </span>
+        <span class="knob"></span>
+      </button>
+    </div>
+  </div>
+  <div class="content">
+    {% for m in messages %}
+    <div class="alert alert-{% if m.tags == 'error' %}error{% elif m.tags == 'success' %}success{% elif m.tags == 'warning' %}warning{% else %}info{% endif %}">
+      <i class="fas fa-info-circle"></i> {{ m }}
+    </div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+    <footer style="margin-top:32px;padding:18px 4px;border-top:1px solid var(--border);text-align:center;font-size:12px;color:var(--text3);line-height:1.7;">
+      &copy; 2026 <b style="color:var(--text2);">Savdoyim</b> &middot; Asoschi &amp; CEO: Abduraxmonov Afruz &middot; Piskent, Toshkent viloyati<br>
+      <a href="{% url 'about' %}" style="color:var(--accent);text-decoration:none;font-weight:600;">Biz haqimizda</a>
+    </footer>
+  </div>
+</main>
+{% endif %}
+
+<script>
+/* ── Sidebar ── */
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+/* ── Yig'iladigan nav guruhi (Buyurtmalar, Sotuvchilar) ── */
+function navGroupToggle(btn) {
+  const grp = btn.closest('.nav-group');
+  if (grp) grp.classList.toggle('open');
+}
+
+/* ── Theme (rejim + rang kombinatsiyasi) ── */
+(function() {
+  const html = document.documentElement;
+  html.setAttribute('data-theme', localStorage.getItem('dt-theme') || 'dark');
+  html.setAttribute('data-accent', localStorage.getItem('dt-accent') || 'blue');
+})();
+
+function toggleTheme() {
+  const html  = document.documentElement;
+  const next  = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('dt-theme', next);
+}
+
+/* Rang kombinatsiyasini o'rnatish (Settings sahifasidan chaqiriladi) */
+function setAccent(name) {
+  document.documentElement.setAttribute('data-accent', name || 'blue');
+  localStorage.setItem('dt-accent', name || 'blue');
+}
+function setMode(mode) {
+  document.documentElement.setAttribute('data-theme', mode);
+  localStorage.setItem('dt-theme', mode);
+}
+
+/* ── Toast ── */
+function showToast(msg, type = 'success') {
+  const t  = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  const ic = type === 'success' ? 'check-circle' : type === 'error' ? 'times-circle' : 'info-circle';
+  t.innerHTML = `<i class="fas fa-${ic}"></i>${msg}`;
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(() => {
+    t.style.animation = 'slideIn 0.3s cubic-bezier(.4,0,.2,1) reverse';
+    setTimeout(() => t.remove(), 300);
+  }, 3200);
+}
+
+/* ── Helpers ── */
+function getCookie(name) {
+  let v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return v ? v.pop() : '';
+}
+async function apiPost(url, data) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+    body: JSON.stringify(data)
+  });
+  return r.json();
+}
+</script>
+{% block extra_js %}{% endblock %}
+<script src="{% static 'i18n.js' %}?v=20260814c"></script>
+</body>
+</html>

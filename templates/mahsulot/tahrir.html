@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% load savdo_extras %}
+{% block title %}{{ mahsulot.nomi }} — tahrir{% endblock %}
+{% block page_title %}Mahsulotni tahrirlash{% endblock %}
+{% block page_sub %}{{ mahsulot.nomi }}{% endblock %}
+{% block content %}
+<style>
+.th-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media(max-width:560px){ .th-grid{ grid-template-columns:1fr; } }
+.th-full{ grid-column:1/-1; }
+.margin-box{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+  margin-top:4px; padding:13px 16px; border-radius:12px; border:1px solid var(--border); background:var(--bg3); }
+.margin-box .m-lbl{ font-size:12.5px; color:var(--text3); }
+.margin-box .m-val{ font-size:18px; font-weight:800; }
+.m-up{ color:var(--accent3); } .m-down{ color:var(--danger); } .m-zero{ color:var(--text3); }
+.faol-row{ display:flex; align-items:center; gap:10px; padding:11px 14px; border:1px solid var(--border);
+  border-radius:10px; background:var(--bg3); }
+.faol-row input{ width:18px; height:18px; accent-color:var(--accent); }
+.nt-up{ color:var(--danger); font-weight:700; } .nt-down{ color:var(--accent3); font-weight:700; }
+</style>
+
+<div class="card" style="max-width:680px;">
+  <form method="post" action="{% url 'mahsulot_tahrir' mahsulot.id %}">
+    {% csrf_token %}
+    <div class="th-grid">
+      <div class="form-group th-full">
+        <label class="form-label">Mahsulot nomi</label>
+        <input type="text" name="nomi" class="form-control" value="{{ mahsulot.nomi }}" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Sotuv narxi (UZS)</label>
+        <input type="number" name="narx" id="narxInp" class="form-control" min="0" step="any"
+               value="{{ mahsulot.narx|floatformat:0 }}" oninput="marginHisob()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tannarx / sotib olish (UZS)</label>
+        <input type="number" name="sotib_olish_narxi" id="sotibInp" class="form-control" min="0" step="any"
+               value="{{ mahsulot.sotib_olish_narxi|floatformat:0 }}" oninput="marginHisob()">
+      </div>
+
+      <div class="th-full">
+        <div class="margin-box">
+          <div>
+            <div class="m-lbl">Bir dona foyda</div>
+            <div class="m-val" id="foydaVal">—</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="m-lbl">Ustama (margin)</div>
+            <div class="m-val" id="marginVal">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Birlik</label>
+        <select name="birlik" class="form-control">
+          <option value="dona" {% if mahsulot.birlik == 'dona' %}selected{% endif %}>dona</option>
+          <option value="kg" {% if mahsulot.birlik == 'kg' %}selected{% endif %}>kg</option>
+          <option value="litr" {% if mahsulot.birlik == 'litr' %}selected{% endif %}>litr</option>
+          <option value="quti" {% if mahsulot.birlik == 'quti' %}selected{% endif %}>quti</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Minimum son (kam ogohlantirish)</label>
+        <input type="number" name="minimum_son" class="form-control" min="0" step="any" value="{{ mahsulot.minimum_son|son }}">
+      </div>
+
+      <div class="form-group th-full">
+        <label class="faol-row">
+          <input type="checkbox" name="faol" {% if mahsulot.faol %}checked{% endif %}>
+          <span>Faol (kassada va do'konda ko'rinadi)</span>
+        </label>
+      </div>
+
+      <div class="th-full" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;">
+        <button type="submit" class="btn btn-primary"><i class="fas fa-floppy-disk"></i> Saqlash</button>
+        <a href="{% url 'mahsulot_royxat' %}" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Ro'yxatga</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Narx tarixi -->
+<div class="card" style="max-width:680px;">
+  <div class="card-title"><i class="fas fa-clock-rotate-left"></i> Narx tarixi</div>
+  {% if tarix %}
+  <div class="table-wrap">
+    <table>
+      <tr><th>Sana</th><th>Sotuv narxi</th><th>Tannarx</th><th>Kim</th></tr>
+      {% for t in tarix %}
+      <tr>
+        <td style="white-space:nowrap;color:var(--text3);font-size:13px;">{{ t.sana|date:"d.m.Y H:i" }}</td>
+        <td>
+          {% if t.narx_ozgardi %}
+            <span style="color:var(--text3);">{{ t.eski_narx|floatformat:0 }}</span>
+            <i class="fas fa-arrow-right" style="font-size:10px;color:var(--text3);"></i>
+            <span class="{% if t.yangi_narx > t.eski_narx %}nt-up{% else %}nt-down{% endif %}">{{ t.yangi_narx|floatformat:0 }}</span>
+          {% else %}
+            <span style="color:var(--text3);">{{ t.yangi_narx|floatformat:0 }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if t.sotib_ozgardi %}
+            <span style="color:var(--text3);">{{ t.eski_sotib|floatformat:0 }}</span>
+            <i class="fas fa-arrow-right" style="font-size:10px;color:var(--text3);"></i>
+            <span class="{% if t.yangi_sotib > t.eski_sotib %}nt-up{% else %}nt-down{% endif %}">{{ t.yangi_sotib|floatformat:0 }}</span>
+          {% else %}
+            <span style="color:var(--text3);">{{ t.yangi_sotib|floatformat:0 }}</span>
+          {% endif %}
+        </td>
+        <td style="font-size:13px;color:var(--text2);">{% if t.kim %}{{ t.kim.first_name|default:t.kim.username }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:26px;color:var(--text3);">
+    <i class="fas fa-tag" style="font-size:26px;opacity:.5;"></i>
+    <div style="margin-top:8px;">Hali narx o'zgartirilmagan.</div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function marginHisob(){
+  var narx = parseFloat(document.getElementById('narxInp').value) || 0;
+  var sotib = parseFloat(document.getElementById('sotibInp').value) || 0;
+  var foyda = narx - sotib;
+  var fv = document.getElementById('foydaVal');
+  var mv = document.getElementById('marginVal');
+  fv.textContent = foyda.toLocaleString('ru-RU') + ' UZS';
+  fv.className = 'm-val ' + (foyda > 0 ? 'm-up' : (foyda < 0 ? 'm-down' : 'm-zero'));
+  if(sotib > 0){
+    var m = foyda / sotib * 100;
+    mv.textContent = (m > 0 ? '+' : '') + m.toFixed(1) + '%';
+    mv.className = 'm-val ' + (m > 0 ? 'm-up' : (m < 0 ? 'm-down' : 'm-zero'));
+  } else {
+    mv.textContent = '—'; mv.className = 'm-val m-zero';
+  }
+}
+marginHisob();
+</script>
+{% endblock %}

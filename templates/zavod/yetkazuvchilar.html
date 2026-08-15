@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}Yetkazuvchilar{% endblock %}
+{% block page_title %}Yetkazuvchilar{% endblock %}
+{% block page_sub %}{{ profil.zavod_nomi }}{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="card-title"><i class="fas fa-user-tie"></i> Yetkazuvchi So'rovlari</div>
+  {% if sorovlar %}
+  <div class="table-wrap">
+    <table>
+      <tr>
+        <th>Ism</th>
+        <th>Login</th>
+        <th>Mashina</th>
+        <th>Sana</th>
+        <th>Holat</th>
+        <th>Amal</th>
+      </tr>
+      {% for s in sorovlar %}
+      <tr>
+        <td style="font-weight:600;">{{ s.yetkazuvchi.foydalanuvchi.get_full_name|default:"-" }}</td>
+        <td>{{ s.yetkazuvchi.foydalanuvchi.username }}</td>
+        <td>{{ s.yetkazuvchi.mashina_raqami|default:"-" }}</td>
+        <td style="color:var(--text3);font-size:12px;">{{ s.yaratilgan|date:"d.m.Y" }}</td>
+        <td>
+          {% if s.holat == 'kutilmoqda' %}
+            <span class="status status-warn"><i class="fas fa-clock"></i> Kutilmoqda</span>
+          {% elif s.holat == 'qabul_qilindi' %}
+            <span class="status status-green"><i class="fas fa-check"></i> Qabul</span>
+          {% else %}
+            <span class="status status-red"><i class="fas fa-times"></i> Rad</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if s.holat == 'kutilmoqda' %}
+          <div style="display:flex;gap:6px;">
+            <button type="button" onclick="javob('{% url 'zavod_sorov_javob' s.id %}','qabul')" class="btn btn-success btn-sm">
+              <i class="fas fa-check"></i> Qabul
+            </button>
+            <button type="button" onclick="javob('{% url 'zavod_sorov_javob' s.id %}','rad')" class="btn btn-danger btn-sm">
+              <i class="fas fa-times"></i> Rad
+            </button>
+          </div>
+          {% elif s.holat == 'qabul_qilindi' %}
+            <a href="{% url 'chat_boshla' s.yetkazuvchi.foydalanuvchi.id %}" class="btn btn-outline btn-sm" title="Yetkazuvchi bilan chat"><i class="fas fa-comments"></i> Chat</a>
+          {% else %}
+            <span style="font-size:12px;color:var(--text3);">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:60px;color:var(--text3);">
+    <i class="fas fa-user-tie" style="font-size:40px;opacity:0.3;display:block;margin-bottom:14px;"></i>
+    Yetkazuvchi so'rovi yo'q
+  </div>
+  {% endif %}
+</div>
+
+<script>
+async function javob(url, harakat) {
+  const res = await apiPost(url, { harakat });
+  if (res.status === 'ok') {
+    showToast(res.xabar, 'success');
+    setTimeout(() => location.reload(), 800);
+  } else {
+    showToast(res.error || 'Xatolik!', 'error');
+  }
+}
+</script>
+{% endblock %}

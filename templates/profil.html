@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Profil - Savdoyim{% endblock %}
+{% block page_title %}Profil{% endblock %}
+{% block page_sub %}Shaxsiy ma'lumotlaringiz{% endblock %}
+
+{% block content %}
+<div style="max-width:560px;margin:0 auto;">
+  <div class="card" style="text-align:center;padding:32px 24px;">
+    <div style="width:88px;height:88px;border-radius:50%;margin:0 auto 16px;
+         background:linear-gradient(135deg,var(--accent),var(--accent2));
+         display:flex;align-items:center;justify-content:center;
+         font-size:36px;font-weight:800;color:#fff;box-shadow:0 8px 24px var(--glow-violet);">
+      {% if profil_user.rasm %}
+        <img src="{{ profil_user.rasm.url }}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+      {% else %}
+        {{ profil_user.first_name|first|default:profil_user.username|first|upper }}
+      {% endif %}
+    </div>
+    <div style="font-size:20px;font-weight:800;">{{ profil_user.first_name|default:profil_user.username }}</div>
+    <div style="margin-top:6px;">
+      <span class="status status-blue">{{ rol_display }}</span>
+      {% if profil_user.tasdiqlangan %}
+        <span class="status status-green"><i class="fas fa-check-circle"></i> Tasdiqlangan</span>
+      {% else %}
+        <span class="status status-warn"><i class="fas fa-clock"></i> Kutilmoqda</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:18px;">
+    <div class="card-title"><i class="fas fa-id-card"></i> Ma'lumotlar</div>
+    {% for label, value in fields %}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;
+         padding:13px 2px;border-bottom:1px solid var(--border);">
+      <span style="font-size:13px;color:var(--text2);">{{ label }}</span>
+      <span style="font-size:14.5px;font-weight:600;text-align:right;">{{ value }}</span>
+    </div>
+    {% endfor %}
+    {% if profil_user.email %}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;
+         padding:13px 2px;">
+      <span style="font-size:13px;color:var(--text2);">Email</span>
+      <span style="font-size:14.5px;font-weight:600;text-align:right;">{{ profil_user.email }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <a href="{% url 'logout' %}" class="btn btn-outline" style="width:100%;justify-content:center;margin-top:18px;">
+    <i class="fas fa-sign-out-alt"></i> Chiqish
+  </a>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}Mijoz buyurtmalari{% endblock %}
+{% block page_title %}Mijoz buyurtmalari{% endblock %}
+{% block page_sub %}Do'koningizga tushgan buyurtmalar{% endblock %}
+
+{% block content %}
+<div style="display:none;">{% csrf_token %}</div>
+
+{% for b in buyurtmalar %}
+<div class="card" id="order-{{ b.id }}" style="margin-bottom:14px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+    <div>
+      <div style="font-weight:800;font-size:16px;">Buyurtma {{ b.raqam }}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px;">
+        <i class="fas fa-user"></i> {{ b.mijoz.first_name|default:b.mijoz.username }} ·
+        <i class="fas fa-clock"></i> {{ b.yaratilgan|date:"d.m.Y H:i" }}
+      </div>
+    </div>
+    <span class="status
+      {% if b.holat == 'yangi' %}status-warn{% elif b.holat == 'tayyor' %}status-green
+      {% elif b.holat == 'olib_ketildi' %}status-blue{% elif b.holat == 'bekor' %}status-red
+      {% else %}status-warn{% endif %}" data-badge>{{ b.get_holat_display }}</span>
+  </div>
+
+  <div style="margin:12px 0;border-top:1px solid var(--border);padding-top:10px;">
+    {% for it in b.itemlar.all %}
+    <div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0;">
+      <span>{{ it.mahsulot_nomi }} <span style="color:var(--text3);">×{{ it.soni }}</span></span>
+      <span style="font-weight:600;">{{ it.jami|floatformat:0 }} so'm</span>
+    </div>
+    {% endfor %}
+    <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:8px;">
+      <span>Jami</span><span>{{ b.jami|floatformat:0 }} so'm</span>
+    </div>
+  </div>
+
+  {% if b.holat == 'yangi' or b.holat == 'tayyorlanmoqda' %}
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:8px 12px;border-radius:10px;background:var(--bg3);font-size:12.5px;color:var(--text2);">
+    <i class="fas fa-store" style="color:var(--accent);"></i> Olib ketish (Click &amp; Collect)
+    <span style="margin-left:auto;">
+      <i class="fas fa-box"></i> {{ b.tur_soni }} xil · {{ b.item_soni }} dona ·
+      <b style="color:var(--accent);"><i class="fas fa-stopwatch"></i> ~{{ b.tayyorlanish_daqiqa }} daqiqa yig'ish</b>
+    </span>
+  </div>
+  {% endif %}
+
+  <div data-action-area>
+    {% if b.keyingi_holat %}
+    <button class="btn btn-primary btn-sm" onclick="statusOldinga({{ b.id }})">
+      <i class="fas fa-arrow-right"></i> {{ b.keyingi_holat_nomi }} ga o'tkazish
+    </button>
+    {% else %}
+    <span style="font-size:12px;color:var(--text3);"><i class="fas fa-check-circle" style="color:var(--accent3);"></i> Yakunlandi</span>
+    {% endif %}
+  </div>
+</div>
+{% empty %}
+<div class="card" style="text-align:center;padding:60px;color:var(--text3);">
+  <i class="fas fa-inbox" style="font-size:44px;opacity:0.25;display:block;margin-bottom:12px;"></i>
+  Hozircha buyurtma yo'q
+</div>
+{% endfor %}
+
+{% include 'buyurtma/_pagination.html' %}
+
+<script>
+function _csrf(){const m=document.querySelector('input[name=csrfmiddlewaretoken]');return m?m.value:'';}
+async function statusOldinga(id){
+  try{
+    const r = await fetch(`/order/mijoz-buyurtma/${id}/holat/`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRFToken':_csrf()},
+      body: JSON.stringify({})
+    });
+    const d = await r.json();
+    if(d.success){
+      showToast(d.message || 'Yangilandi', 'success');
+      setTimeout(()=>location.reload(), 600);
+    } else {
+      showToast(d.message || 'Xatolik', 'error');
+    }
+  }catch(e){ showToast('Xatolik yuz berdi', 'error'); }
+}
+</script>
+{% endblock %}

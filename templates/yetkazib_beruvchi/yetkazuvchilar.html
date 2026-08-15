@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Yetkazuvchilar{% endblock %}
+{% block page_title %}Yetkazuvchilar{% endblock %}
+{% block page_sub %}Biriktirilgan yetkazib beruvchilar{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-title"><i class="fas fa-user-tie"></i> Yetkazuvchilar Ro'yxati</div>
+  <div class="table-wrap">
+    <table>
+      <tr>
+        <th>F.I.Sh.</th>
+        <th>Login</th>
+        <th>Jo'natmalar soni</th>
+      </tr>
+      {% for y in yetkazuvchilar %}
+      <tr>
+        <td style="font-weight:600;">{{ y.foydalanuvchi.get_full_name|default:"-" }}</td>
+        <td>{{ y.foydalanuvchi.username }}</td>
+        <td>{{ y.jonatmalar.count }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3" style="text-align:center;color:var(--text3);">Yetkazuvchi yo'q</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% load static %}
+{% load savdo_extras %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chek #{{ chek.id }} — Savdoyim</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',Arial,sans-serif; background:#eef2f8; color:#0f172a;
+         min-height:100vh; display:flex; align-items:flex-start; justify-content:center; padding:20px; }
+  .chek { background:#fff; width:100%; max-width:400px; border-radius:16px;
+          box-shadow:0 10px 40px rgba(0,0,0,0.12); overflow:hidden; }
+  .chek-top { background:linear-gradient(135deg,#3b6ef0,#6d28d9); color:#fff; padding:22px 20px; text-align:center; }
+  .chek-top .logo { font-size:22px; font-weight:800; letter-spacing:-0.5px; }
+  .chek-top .dokon { font-size:14px; opacity:0.92; margin-top:4px; }
+  .chek-top .meta { font-size:12px; opacity:0.8; margin-top:8px; }
+  .chek-body { padding:18px 20px; }
+  .row { display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+         padding:8px 0; border-bottom:1px dashed #e2e8f0; font-size:14px; }
+  .row .nomi { flex:1; }
+  .row .qty { color:#64748b; font-size:12px; }
+  .row .summa { font-weight:700; white-space:nowrap; }
+  .totals { margin-top:12px; padding-top:12px; border-top:2px solid #0f172a; }
+  .totals .t { display:flex; justify-content:space-between; font-size:14px; padding:4px 0; }
+  .totals .grand { font-size:19px; font-weight:800; color:#3b6ef0; padding-top:6px; }
+  .pay { display:inline-block; margin-top:10px; padding:5px 14px; border-radius:20px;
+         font-size:13px; font-weight:700; background:#eef2ff; color:#3b6ef0; }
+  .qr-box { text-align:center; padding:18px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; }
+  .qr-box img { width:170px; height:170px; }
+  .qr-box .qr-txt { font-size:12.5px; color:#475569; margin-top:8px; line-height:1.5; }
+  .soliq { font-size:11.5px; color:#94a3b8; margin-top:6px; }
+  .actions { display:flex; gap:10px; padding:16px 20px; }
+  .btn { flex:1; text-align:center; padding:11px; border-radius:10px; text-decoration:none;
+         font-weight:600; font-size:14px; cursor:pointer; border:none; font-family:inherit; }
+  .btn-p { background:#3b6ef0; color:#fff; }
+  .btn-o { background:#eef2f8; color:#334155; border:1px solid #d1daf0; }
+  .foot { text-align:center; font-size:11px; color:#94a3b8; padding:0 20px 18px; }
+  @media print {
+    body { background:#fff; padding:0; }
+    .chek { box-shadow:none; max-width:100%; }
+    .actions { display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="chek">
+  <div class="chek-top">
+    <div class="logo">🧾 Savdoyim</div>
+    <div class="dokon">{{ chek.dokon.dokon_nomi|default:"Do'kon" }}</div>
+    <div class="meta">Chek #{{ chek.id }} · {{ chek.yaratilgan|date:"d.m.Y H:i" }}</div>
+  </div>
+
+  <div class="chek-body">
+    {% for item in items %}
+    <div class="row">
+      <div>
+        <div class="nomi">{{ item.mahsulot_nomi }}</div>
+        <div class="qty">{{ item.soni|son }} × {{ item.narx|floatformat:0 }} so'm</div>
+      </div>
+      <div class="summa">{{ item.jami|floatformat:0 }}</div>
+    </div>
+    {% endfor %}
+
+    <div class="totals">
+      {% if chek.chegirma %}
+      <div class="t"><span>Chegirma</span><span>−{{ chek.chegirma|floatformat:0 }} so'm</span></div>
+      {% endif %}
+      <div class="t grand"><span>JAMI</span><span>{{ chek.jami|floatformat:0 }} so'm</span></div>
+      {% if chek.qaytim %}
+      <div class="t"><span>Qaytim</span><span>{{ chek.qaytim|floatformat:0 }} so'm</span></div>
+      {% endif %}
+      {% if chek.qaytarilgan_summa %}
+      <div class="t" style="color:#dc2626;font-weight:600;"><span>↩️ Qaytarilgan</span><span>−{{ chek.qaytarilgan_summa|floatformat:0 }} so'm</span></div>
+      {% endif %}
+      <span class="pay">{{ chek.get_tolash_turi_display }}</span>
+      {% if chek.qaytarish_holati == 'toliq' %}
+      <span class="pay" style="background:#fee2e2;color:#dc2626;">To'liq qaytarilgan</span>
+      {% elif chek.qaytarish_holati == 'qisman' %}
+      <span class="pay" style="background:#fef3c7;color:#b45309;">Qisman qaytarilgan</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="qr-box">
+    {% if qr %}
+    <img src="{{ qr }}" alt="QR chek">
+    <div class="qr-txt">Chekni saqlash uchun QR kodni skanerlang</div>
+    {% endif %}
+    <div class="soliq">Rasmiy soliq cheki va keshbek — OFD ulanganda faollashadi</div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-p" onclick="window.print()">🖨 Chop etish</button>
+    <a class="btn btn-o" href="/checkout/kassa/">Yangi savdo</a>
+  </div>
+
+  <div class="foot">© 2026 Savdoyim · raqamli chek</div>
+</div>
+</body>
+</html>

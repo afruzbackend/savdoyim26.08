@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}Kutilmoqda{% endblock %}
+{% block auth_content %}
+<style>
+.wait-bg {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background:
+    radial-gradient(ellipse 700px 500px at 30% 30%, rgba(91,138,245,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 600px 600px at 75% 75%, rgba(16,217,160,0.06) 0%, transparent 60%),
+    var(--bg);
+}
+.wait-card {
+  text-align: center; max-width: 400px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 50px 40px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  animation: cardIn 0.5s cubic-bezier(.4,0,.2,1);
+  position: relative;
+  transition: background 0.35s, border-color 0.35s;
+}
+[data-theme="light"] .wait-card { box-shadow: 0 12px 40px rgba(0,0,0,0.10); }
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.wait-icon { font-size: 72px; margin-bottom: 20px; display: block; animation: float 3s ease-in-out infinite; }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+.auth-theme-btn {
+  position: absolute; top: 18px; right: 18px;
+  width: 36px; height: 36px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; transition: background 0.2s, transform 0.2s;
+}
+.auth-theme-btn:hover { background: var(--border); transform: scale(1.1); }
+</style>
+<div class="wait-bg">
+  <div class="wait-card">
+    <button class="auth-theme-btn" onclick="toggleTheme()" title="Mavzuni almashtirish">
+      <span id="authThemeIcon">🌙</span>
+    </button>
+    {% if holat == 'kutilmoqda' %}
+    <span class="wait-icon">⏳</span>
+    <h2 style="font-size:22px;font-weight:800;margin-bottom:10px;">So'rovingiz kutilmoqda</h2>
+    <p style="color:var(--text2);margin-bottom:28px;line-height:1.6;">Dokon egasi so'rovingizni ko'rib chiqmoqda.<br>Tasdiqlangach kirish imkoniga ega bo'lasiz.</p>
+    {% else %}
+    <span class="wait-icon">❌</span>
+    <h2 style="font-size:22px;font-weight:800;margin-bottom:10px;color:var(--danger);">So'rov rad etildi</h2>
+    <p style="color:var(--text2);margin-bottom:28px;line-height:1.6;">Afsuski, dokon egasi so'rovingizni rad etdi.</p>
+    {% endif %}
+    <a href="/logout/" class="btn btn-outline" style="justify-content:center;">
+      <i class="fas fa-sign-out-alt"></i> Chiqish
+    </a>
+  </div>
+</div>
+<script>
+function syncAuthIcon() {
+  const el = document.getElementById('authThemeIcon');
+  if (el) el.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+}
+const _origToggle = window.toggleTheme;
+window.toggleTheme = function() { _origToggle(); syncAuthIcon(); };
+syncAuthIcon();
+</script>
+{% endblock %}

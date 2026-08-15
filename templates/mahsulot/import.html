@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Excel import{% endblock %}
+{% block page_title %}Excel / CSV import{% endblock %}
+{% block page_sub %}Mahsulotlarni bir yo'la qo'shish{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:620px;">
+  <div class="card-title"><i class="fas fa-file-excel" style="color:#10b981;"></i> Fayldan mahsulot qo'shish</div>
+
+  <p style="font-size:13.5px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+    Excel (.xlsx) yoki CSV fayl yuklang. <b>Birinchi qator — sarlavha</b> bo'lishi kerak.
+    Ustunlar (tartib muhim emas, nom bo'yicha topiladi):
+  </p>
+
+  <div style="overflow-x:auto;margin-bottom:16px;">
+    <table style="font-size:12.5px;">
+      <tr>
+        <th>nomi *</th><th>narx *</th><th>soni</th><th>barkod</th><th>kategoriya</th><th>birlik</th>
+      </tr>
+      <tr>
+        <td>Coca-Cola 0.5L</td><td>8000</td><td>50</td><td>4780069000154</td><td>ichimliklar</td><td>dona</td>
+      </tr>
+      <tr>
+        <td>Non</td><td>3000</td><td>100</td><td></td><td>non</td><td>dona</td>
+      </tr>
+    </table>
+  </div>
+  <div style="font-size:12px;color:var(--text3);margin-bottom:18px;">
+    <i class="fas fa-circle-info"></i> Faqat <b>nomi</b> va <b>narx</b> majburiy. Kategoriya bo'sh bo'lsa —
+    nomdan avtomatik aniqlanadi. Barkod bo'lsa — umumiy katalogga ham tushadi.
+  </div>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-group">
+      <label class="form-label">Excel yoki CSV fayl</label>
+      <input type="file" name="fayl" class="form-control" accept=".xlsx,.xls,.csv" required>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button type="submit" class="btn btn-primary"><i class="fas fa-upload"></i> Yuklash va qo'shish</button>
+      <a href="{% url 'mahsulot_royxat' %}" class="btn btn-outline">Bekor qilish</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

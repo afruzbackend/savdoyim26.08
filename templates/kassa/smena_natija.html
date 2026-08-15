@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}Smena natijasi{% endblock %}
+{% block page_title %}Smena yopildi{% endblock %}
+{% block page_sub %}Sizning smena natijangiz{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px;margin:0 auto;">
+  <div style="text-align:center;margin-bottom:16px;">
+    <i class="fas fa-circle-check" style="font-size:44px;color:var(--accent3);"></i>
+    <div style="font-weight:800;font-size:18px;margin-top:8px;">Smena yopildi ✅</div>
+    <div style="color:var(--text3);font-size:13px;">
+      {{ natija.sotuvchi }} · {{ natija.ochilgan|date:"d.m H:i" }} — {{ natija.yopilgan|date:"H:i" }} ({{ natija.davomiylik }})
+    </div>
+    {% if natija.reyting %}
+    <div style="margin-top:6px;color:#fbbf24;font-weight:700;"><i class="fas fa-star"></i> {{ natija.reyting }}/5 <span style="color:var(--text3);font-size:12px;">({{ natija.reyting_n }} baho)</span></div>
+    {% endif %}
+  </div>
+
+  <div class="stats-grid" style="margin-bottom:16px;">
+    <div class="stat-card blue">
+      <div class="stat-label"><i class="fas fa-coins"></i> Jami savdo</div>
+      <div class="stat-value" style="font-size:20px;">{{ natija.jami_savdo|floatformat:0 }}</div>
+      <div class="stat-sub">so'm</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label"><i class="fas fa-cash-register"></i> Kassaga tushgan</div>
+      <div class="stat-value" style="font-size:20px;">{{ natija.kassaga_tushgan|floatformat:0 }}</div>
+      <div class="stat-sub">{{ natija.chek_soni }} ta chek</div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:14px;padding:12px;border-radius:10px;background:var(--bg3);margin-bottom:16px;">
+    <span>💵 Naqd: <b>{{ natija.naqd|floatformat:0 }}</b></span>
+    <span>💳 Karta: <b>{{ natija.karta|floatformat:0 }}</b></span>
+    <span>📋 Qarz: <b>{{ natija.qarz|floatformat:0 }}</b></span>
+  </div>
+
+  {% if natija.verka_holati != 'yoq' %}
+  <div style="border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:16px;
+       {% if natija.verka_holati == 'mos' %}background:color-mix(in srgb,var(--accent3) 9%,transparent);border-color:color-mix(in srgb,var(--accent3) 35%,transparent);
+       {% elif natija.verka_holati == 'kamomad' %}background:color-mix(in srgb,var(--danger) 9%,transparent);border-color:color-mix(in srgb,var(--danger) 35%,transparent);
+       {% else %}background:color-mix(in srgb,var(--warn) 9%,transparent);border-color:color-mix(in srgb,var(--warn) 35%,transparent);{% endif %}">
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:10px;">
+      🧮 Naqd verka (Z-hisobot)
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:3px 0;">
+      <span style="color:var(--text3);">Boshlang'ich naqd</span><b>{{ natija.boshlangich_naqd|floatformat:0 }}</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:3px 0;">
+      <span style="color:var(--text3);">Tizim kutgan naqd</span><b>{{ natija.kutilgan_naqd|floatformat:0 }}</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:13.5px;padding:3px 0;">
+      <span style="color:var(--text3);">Siz sanagan naqd</span><b>{{ natija.real_naqd|floatformat:0 }}</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:15px;padding:8px 0 0;margin-top:6px;border-top:1px dashed var(--border);">
+      <span style="font-weight:700;">Farq</span>
+      {% if natija.verka_holati == 'mos' %}
+        <b style="color:var(--accent3);">✅ 0 · to'g'ri</b>
+      {% elif natija.verka_holati == 'kamomad' %}
+        <b style="color:var(--danger);">⛔ Kamomad {{ natija.naqd_farq|floatformat:0 }}</b>
+      {% else %}
+        <b style="color:var(--warn);">⚠️ Ortiqcha +{{ natija.naqd_farq|floatformat:0 }}</b>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if natija.top %}
+  <div style="margin-bottom:16px;">
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:8px;">🏆 Eng ko'p sotilgan</div>
+    {% for m in natija.top %}
+    <div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;border-bottom:1px solid var(--border);">
+      <span>{{ forloop.counter }}. {{ m.nomi }}</span>
+      <span style="color:var(--text2);">{{ m.jami_soni }} dona · {{ m.summa|floatformat:0 }} so'm</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <a href="{% url 'kassa' %}" class="btn btn-primary" style="width:100%;justify-content:center;"><i class="fas fa-cash-register"></i> Kassaga qaytish</a>
+</div>
+{% endblock %}

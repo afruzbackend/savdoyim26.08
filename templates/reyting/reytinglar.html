@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}Baholar - Savdoyim{% endblock %}
+{% block page_title %}Baholar va izohlar{% endblock %}
+{% block page_sub %}{{ baholanuvchi_nomi }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .rate-stars-input { display:flex; flex-direction:row-reverse; justify-content:flex-end; gap:4px; }
+  .rate-stars-input input { display:none; }
+  .rate-stars-input label { font-size:32px; color:var(--border2); cursor:pointer; transition:color .15s; }
+  .rate-stars-input label:hover,
+  .rate-stars-input label:hover ~ label,
+  .rate-stars-input input:checked ~ label { color:#fbbf24; }
+  .stars-static i { color:#fbbf24; }
+  .stars-static i.off { color:var(--border2); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:640px;margin:0 auto;">
+
+  <!-- Umumiy baho -->
+  <div class="card" style="text-align:center;padding:30px 24px;">
+    <div style="width:70px;height:70px;border-radius:50%;margin:0 auto 14px;
+         background:linear-gradient(135deg,var(--accent),var(--accent2));
+         display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;">
+      {{ baholanuvchi_nomi|first|upper }}
+    </div>
+    <div style="font-size:20px;font-weight:800;">{{ baholanuvchi_nomi }}</div>
+    <div style="margin-top:4px;"><span class="status status-blue">{{ baholanuvchi_rol }}</span></div>
+    <div style="margin-top:16px;font-size:44px;font-weight:800;color:#fbbf24;line-height:1;">
+      {{ ortacha }} <span style="font-size:22px;">★</span>
+    </div>
+    <div style="color:var(--text3);font-size:13px;margin-top:6px;">{{ soni }} ta baho asosida</div>
+  </div>
+
+  <!-- Baho berish formasi -->
+  {% if can_rate %}
+  <div class="card" style="margin-top:18px;">
+    <div class="card-title"><i class="fas fa-star"></i> {% if mening %}Bahoyingizni yangilang{% else %}Baho bering{% endif %}</div>
+    <form method="post" action="{% url 'reyting_berish' %}">
+      {% csrf_token %}
+      <input type="hidden" name="baholanuvchi_id" value="{{ baholanuvchi.id }}">
+      <div class="rate-stars-input" style="margin:8px 0 18px;">
+        <input type="radio" name="yulduz" id="y5" value="5" {% if mening.yulduz == 5 or not mening %}checked{% endif %}><label for="y5">★</label>
+        <input type="radio" name="yulduz" id="y4" value="4" {% if mening.yulduz == 4 %}checked{% endif %}><label for="y4">★</label>
+        <input type="radio" name="yulduz" id="y3" value="3" {% if mening.yulduz == 3 %}checked{% endif %}><label for="y3">★</label>
+        <input type="radio" name="yulduz" id="y2" value="2" {% if mening.yulduz == 2 %}checked{% endif %}><label for="y2">★</label>
+        <input type="radio" name="yulduz" id="y1" value="1" {% if mening.yulduz == 1 %}checked{% endif %}><label for="y1">★</label>
+      </div>
+      <div class="form-group">
+        <textarea name="izoh" class="form-control" rows="3" placeholder="Izoh (ixtiyoriy)...">{{ mening.izoh|default:'' }}</textarea>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">
+        <i class="fas fa-paper-plane"></i> {% if mening %}Yangilash{% else %}Yuborish{% endif %}
+      </button>
+    </form>
+  </div>
+  {% elif xarid_kerak %}
+  <div class="card" style="margin-top:18px;text-align:center;padding:24px;color:var(--text2);">
+    <i class="fas fa-lock" style="font-size:30px;opacity:0.4;display:block;margin-bottom:12px;"></i>
+    <div style="font-weight:700;margin-bottom:4px;">Baho berish uchun avval xarid qiling</div>
+    <div style="font-size:13px;">Faqat shu do'kondan buyurtma berib, olib ketganingizdan so'ng baho bera olasiz.</div>
+  </div>
+  {% endif %}
+
+  <!-- Barcha izohlar -->
+  <div class="card" style="margin-top:18px;">
+    <div class="card-title"><i class="fas fa-comments"></i> Izohlar ({{ soni }})</div>
+    {% for r in reytinglar %}
+    <div style="padding:14px 2px;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <span style="font-weight:700;font-size:14px;">{{ r.baholovchi.first_name|default:r.baholovchi.username }}</span>
+        <span class="stars-static" style="font-size:14px;white-space:nowrap;">
+          {% for s in "12345" %}<i class="fas fa-star {% if forloop.counter > r.yulduz %}off{% endif %}"></i>{% endfor %}
+        </span>
+      </div>
+      {% if r.izoh %}<div style="font-size:13.5px;color:var(--text2);margin-top:6px;line-height:1.5;">{{ r.izoh }}</div>{% endif %}
+      <div style="font-size:11px;color:var(--text3);margin-top:6px;">{{ r.yaratilgan|date:"d.m.Y H:i" }}</div>
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:40px;color:var(--text3);">
+      <i class="fas fa-comment-slash" style="font-size:36px;opacity:0.25;display:block;margin-bottom:12px;"></i>
+      Hozircha izohlar yo'q
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

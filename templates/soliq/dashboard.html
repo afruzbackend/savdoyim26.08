@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Soliq Hisobi{% endblock %}
+{% block page_title %}Soliq Hisobi{% endblock %}
+{% block page_sub %}Avtomatik hisoblash{% endblock %}
+{% block content %}
+
+<div class="stats-grid">
+  <div class="stat-card blue">
+    <div class="stat-label"><i class="fas fa-sun"></i> Kunlik Savdo</div>
+    <div class="stat-value">{{ kunlik.savdo|floatformat:0 }}</div>
+    <div class="stat-sub">Soliq: {{ kunlik.soliq|floatformat:0 }} UZS</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-label"><i class="fas fa-calendar-week"></i> Haftalik Savdo</div>
+    <div class="stat-value">{{ haftalik.savdo|floatformat:0 }}</div>
+    <div class="stat-sub">Soliq: {{ haftalik.soliq|floatformat:0 }} UZS</div>
+  </div>
+  <div class="stat-card warn">
+    <div class="stat-label"><i class="fas fa-calendar-alt"></i> Oylik Savdo</div>
+    <div class="stat-value">{{ oylik.savdo|floatformat:0 }}</div>
+    <div class="stat-sub">Soliq: {{ oylik.soliq|floatformat:0 }} UZS</div>
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-label"><i class="fas fa-calendar"></i> Yillik Savdo</div>
+    <div class="stat-value">{{ yillik.savdo|floatformat:0 }}</div>
+    <div class="stat-sub">Soliq: {{ yillik.soliq|floatformat:0 }} UZS</div>
+  </div>
+</div>
+
+<div class="card" style="max-width:520px;">
+  <div class="card-title"><i class="fas fa-file-invoice-dollar"></i> Soliq rejimi</div>
+  <div style="display:flex;align-items:center;gap:14px;padding:6px 0 4px;">
+    <div style="width:48px;height:48px;border-radius:14px;flex-shrink:0;
+                background:linear-gradient(135deg,var(--accent),var(--accent2));
+                display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;
+                box-shadow:0 6px 18px var(--ring);">
+      <i class="fas fa-landmark"></i>
+    </div>
+    <div>
+      <div style="font-size:17px;font-weight:700;">{{ sozlama.get_tur_display }}</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:2px;">Soliq avtomatik hisoblanadi</div>
+    </div>
+  </div>
+  <div style="margin-top:16px;padding:13px 15px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;
+              display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text2);">
+    <i class="fas fa-circle-info" style="color:var(--accent3);"></i>
+    Yuqoridagi kartalarda har davr uchun to'lanadigan soliq summasi ko'rsatilgan.
+  </div>
+</div>
+
+{% endblock %}

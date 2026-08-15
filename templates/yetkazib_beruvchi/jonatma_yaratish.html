@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+{% block title %}Mahsulot Jo'natish{% endblock %}
+{% block page_title %}Mahsulot Jo'natish{% endblock %}
+{% block page_sub %}Yangi jo'natma yaratish{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>#pinMap{height:240px;border-radius:10px;overflow:hidden;z-index:1;position:relative;display:none;margin-top:10px;}</style>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-title"><i class="fas fa-paper-plane"></i> Jo'natma yaratish</div>
+
+  <div style="margin-bottom:16px;">
+    <label class="form-label">Yetkazuvchi (ixtiyoriy)</label>
+    <select id="yetkazuvchiSelect" class="form-control">
+      <option value="">— Tanlanmagan (keyin barkod orqali biriktiriladi) —</option>
+      {% for y in yetkazuvchilar %}
+      <option value="{{ y.id }}">{{ y.foydalanuvchi.get_full_name|default:y.foydalanuvchi.username }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Yetkazish manzili -->
+  <div style="margin-bottom:16px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg3);">
+    <label class="form-label"><i class="fas fa-location-dot" style="color:var(--danger);"></i> Yetkazish manzili (do'kon)</label>
+    <select id="dokonSelect" class="form-control" onchange="dokonTanlandi()">
+      <option value="">— Do'kon tanlang (yoki xaritada belgilang) —</option>
+      {% for d in dokonlar %}
+      <option value="{{ d.id }}" data-manzil="{{ d.manzil|default:'' }}"
+        {% if tanlangan_dokon_id == d.id|stringformat:'s' %}selected{% endif %}>
+        {{ d.dokon_nomi }}{% if d.manzil %} — {{ d.manzil|truncatechars:40 }}{% endif %}
+      </option>
+      {% endfor %}
+    </select>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button type="button" class="btn btn-outline btn-sm" onclick="pinXaritatoggle()"><i class="fas fa-map-pin"></i> Xaritada aniq belgilash</button>
+      <span id="pinHolat" style="font-size:12px;color:var(--text3);"></span>
+    </div>
+    <div id="pinMap"></div>
+    <input type="text" id="manzilTxt" class="form-control" placeholder="Manzil matni (ixtiyoriy)" style="margin-top:10px;">
+  </div>
+
+  <div style="margin-bottom:16px;max-width:280px;">
+    <label class="form-label"><i class="fas fa-calendar-day" style="color:var(--accent);"></i> Zavoddan chiqish sanasi</label>
+    <input type="text" id="chiqishSana" class="form-control" placeholder="12.07.2026" maxlength="10" inputmode="numeric" oninput="sanaFormat(this)">
+    <div style="font-size:11px;color:var(--text3);margin-top:4px;">Masalan 12072026 yozing — o'zi 12.07.2026 bo'ladi</div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr>
+        <th>Mahsulot</th>
+        <th>Mavjud</th>
+        <th>Birlik</th>
+        <th>Soni</th>
+        <th>Tugash muddati</th>
+      </tr>
+      {% for m in mahsulotlar %}
+      <tr>
+        <td style="font-weight:600;">{{ m.nomi }}<div style="font-size:11px;color:var(--text3);font-family:monospace;">{{ m.barkod|default:"—" }}</div></td>
+        <td>{{ m.soni }}</td>
+        <td style="width:90px;">
+          <select class="form-control mahsulot-birlik" data-id="{{ m.id }}" style="padding:6px 8px;">
+            <option value="dona" {% if m.birlik == 'dona' %}selected{% endif %}>dona</option>
+            <option value="kg" {% if m.birlik == 'kg' %}selected{% endif %}>kg</option>
+            <option value="litr" {% if m.birlik == 'litr' %}selected{% endif %}>litr</option>
+          </select>
+        </td>
+        <td style="width:150px;">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="sonQadam({{ m.id }},-1)" style="padding:4px 10px;">−</button>
+            <input type="number" class="form-control mahsulot-soni" data-id="{{ m.id }}" data-barkod="{{ m.barkod|default:'' }}" min="0" max="{{ m.soni }}" value="0" style="padding:6px 4px;width:52px;text-align:center;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="sonQadam({{ m.id }},1)" style="padding:4px 10px;">+</button>
+          </div>
+        </td>
+        <td style="width:130px;">
+          <input type="text" class="form-control mahsulot-tugash" data-id="{{ m.id }}" placeholder="14.07.2026" maxlength="10" inputmode="numeric" oninput="sanaFormat(this)" style="padding:6px 8px;">
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:var(--text3);">Mahsulot yo'q</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div style="margin-top:16px;">
+    <label class="form-label">Izoh</label>
+    <textarea id="izoh" class="form-control" rows="3" placeholder="Izoh (ixtiyoriy)"></textarea>
+  </div>
+
+  <div style="margin-top:16px;display:flex;justify-content:flex-end;">
+    <button class="btn btn-primary" onclick="jonatmaYubor()">
+      <i class="fas fa-paper-plane"></i> Jo'natmani Yaratish
+    </button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+let pinLat=null, pinLng=null, pmap=null, pmark=null;
+
+// Do'kon tanlanganda — qo'lda qo'yilgan pinni tozalaymiz (do'kon koordinatasi ustun)
+function dokonTanlandi(){
+  const sel=document.getElementById('dokonSelect');
+  if(sel.value){ pinLat=null; pinLng=null; document.getElementById('pinHolat').textContent='';
+    if(pmark && pmap){ pmark.remove(); pmark=null; } }
+}
+
+function pinXaritatoggle(){
+  const el=document.getElementById('pinMap');
+  const ochiq = el.style.display==='block';
+  el.style.display = ochiq ? 'none' : 'block';
+  if(!ochiq){
+    setTimeout(()=>{
+      if(!pmap){
+        pmap=L.map('pinMap').setView([41.2995,69.2401],11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'OSM'}).addTo(pmap);
+        pmap.on('click',e=>{
+          pinLat=e.latlng.lat; pinLng=e.latlng.lng;
+          if(pmark) pmark.setLatLng(e.latlng); else pmark=L.marker(e.latlng).addTo(pmap);
+          document.getElementById('pinHolat').innerHTML=`<i class="fas fa-check" style="color:var(--accent3);"></i> Belgilandi: ${pinLat.toFixed(4)}, ${pinLng.toFixed(4)}`;
+          document.getElementById('dokonSelect').value='';   // qo'lda pin — do'kon tanlovni bekor qilamiz
+        });
+      }
+      pmap.invalidateSize();
+    },200);
+  }
+}
+
+// 14072026 -> 14.07.2026 (yozganda avtomatik nuqta qo'yiladi)
+function sanaFormat(inp){
+  let v=inp.value.replace(/\D/g,'').slice(0,8);
+  if(v.length>=5) v=v.slice(0,2)+'.'+v.slice(2,4)+'.'+v.slice(4);
+  else if(v.length>=3) v=v.slice(0,2)+'.'+v.slice(2);
+  inp.value=v;
+}
+// Soni +/- qadam (0..mavjud oralig'ida)
+function sonQadam(id, delta){
+  const inp=document.querySelector(`.mahsulot-soni[data-id="${id}"]`);
+  if(!inp)return;
+  let v=(parseInt(inp.value)||0)+delta;
+  const max=parseInt(inp.max)||999999;
+  if(v<0)v=0; if(v>max)v=max;
+  inp.value=v;
+}
+
+async function jonatmaYubor() {
+  const mahsulotlar = [];
+  document.querySelectorAll('.mahsulot-soni').forEach(input => {
+    const soni = parseInt(input.value || 0);
+    if (soni > 0) {
+      const id = input.dataset.id;
+      const birlik = (document.querySelector(`.mahsulot-birlik[data-id="${id}"]`)||{}).value || 'dona';
+      const tugash = (document.querySelector(`.mahsulot-tugash[data-id="${id}"]`)||{}).value || '';
+      mahsulotlar.push({ id, soni, birlik, tugash });
+    }
+  });
+
+  if (mahsulotlar.length === 0) {
+    showToast("Kamida bitta mahsulot tanlang!", 'error');
+    return;
+  }
+
+  const data = {
+    yetkazuvchi_id: document.getElementById('yetkazuvchiSelect').value || null,
+    mahsulotlar: mahsulotlar,
+    izoh: document.getElementById('izoh').value,
+    dokon_id: document.getElementById('dokonSelect').value || null,
+    lat: pinLat,
+    lng: pinLng,
+    manzil: document.getElementById('manzilTxt').value || '',
+    chiqish_sana: document.getElementById('chiqishSana').value || '',
+  };
+
+  const res = await apiPost('/zavod/jonatish/yuborish/', data);
+  if (res.status === 'ok') {
+    showToast(`Jo'natma yaratildi! Barkod: ${res.barkod}`, 'success');
+    setTimeout(() => window.location.href = '/zavod/jonatmalar/', 1200);
+  } else {
+    showToast(res.error || 'Xatolik!', 'error');
+  }
+}
+</script>
+{% endblock %}

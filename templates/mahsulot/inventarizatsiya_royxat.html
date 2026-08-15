@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}Inventarizatsiya{% endblock %}
+{% block page_title %}Inventarizatsiya{% endblock %}
+{% block page_sub %}Ombor sanog'i — tizim soni bilan real sonni solishtiring{% endblock %}
+{% block content %}
+<style>
+.inv-cta{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px;
+  padding:18px 20px; border-radius:16px; margin-bottom:18px;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg3)), var(--bg3));
+  border:1px solid color-mix(in srgb, var(--accent) 32%, transparent); }
+.inv-cta .t{ font-weight:700; font-size:15.5px; color:var(--text); }
+.inv-cta .s{ font-size:13px; color:var(--text3); margin-top:3px; }
+.inv-badge{ display:inline-flex; align-items:center; gap:5px; padding:3px 11px; border-radius:999px;
+  font-size:11.5px; font-weight:700; }
+.inv-badge.yakun{ background:rgba(16,217,160,.14); color:var(--accent3); }
+.inv-badge.bekor{ background:rgba(123,140,167,.16); color:var(--text3); }
+.inv-badge.ochiq{ background:rgba(245,158,11,.16); color:var(--warn); }
+</style>
+
+{% if ochiq %}
+<div class="inv-cta">
+  <div>
+    <div class="t"><i class="fas fa-clipboard-check" style="color:var(--warn);"></i> Ochiq sanoq bor</div>
+    <div class="s">{{ ochiq.boshlangan|date:"d.m.Y H:i" }} da boshlangan · {{ ochiq.sanalgan_soni }}/{{ ochiq.jami_soni }} sanaldi</div>
+  </div>
+  <a href="{% url 'inventarizatsiya_detail' ochiq.id %}" class="btn btn-primary">
+    <i class="fas fa-arrow-right"></i> Davom etish
+  </a>
+</div>
+{% else %}
+<div class="card">
+  <div class="card-title"><i class="fas fa-clipboard-list"></i> Yangi sanoq</div>
+  <p style="color:var(--text3);font-size:13.5px;margin:2px 0 14px;">
+    Sanoq boshlansa, hozirgi barcha mahsulotlar ro'yxatga olinadi. Har birini real sanab,
+    sonini kiritasiz. Yakunlaganingizda ombor real songa <b>avtomatik tuzatiladi</b> va
+    kamomad/ortiqcha qayd etiladi.
+  </p>
+  <form method="post" action="{% url 'inventarizatsiya_boshlash' %}"
+        style="display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;">
+    {% csrf_token %}
+    <input type="text" name="izoh" class="form-control" maxlength="200"
+           placeholder="Izoh (ixtiyoriy) — masalan: oylik sanoq" style="flex:1;min-width:200px;">
+    <button type="submit" class="btn btn-primary"><i class="fas fa-play"></i> Sanoqni boshlash</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title"><i class="fas fa-clock-rotate-left"></i> Sanoqlar tarixi</div>
+  {% if sessiyalar %}
+  <div class="table-wrap">
+    <table>
+      <tr>
+        <th>Sana</th>
+        <th>Holat</th>
+        <th style="text-align:center;">Sanaldi</th>
+        <th style="text-align:center;">Kamomad</th>
+        <th style="text-align:right;">Kamomad qiymati</th>
+        <th></th>
+      </tr>
+      {% for s in sessiyalar %}
+      <tr>
+        <td style="white-space:nowrap;">{{ s.boshlangan|date:"d.m.Y H:i" }}
+          {% if s.izoh %}<div style="font-size:12px;color:var(--text3);">{{ s.izoh }}</div>{% endif %}
+        </td>
+        <td>
+          {% if s.holat == 'yakunlangan' %}
+            <span class="inv-badge yakun"><i class="fas fa-check"></i> Yakunlangan</span>
+          {% else %}
+            <span class="inv-badge bekor"><i class="fas fa-xmark"></i> Bekor</span>
+          {% endif %}
+        </td>
+        <td style="text-align:center;">{{ s.sanalgan_soni }}/{{ s.jami_soni }}</td>
+        <td style="text-align:center;">
+          {% if s.kamomad_soni %}<span style="color:var(--danger);font-weight:700;">{{ s.kamomad_soni }}</span>
+          {% else %}<span style="color:var(--text3);">0</span>{% endif %}
+        </td>
+        <td style="text-align:right;font-weight:600;{% if s.kamomad_qiymat %}color:var(--danger);{% else %}color:var(--text3);{% endif %}">
+          {% if s.kamomad_qiymat %}−{{ s.kamomad_qiymat|floatformat:0 }} UZS{% else %}—{% endif %}
+        </td>
+        <td style="text-align:right;">
+          <a href="{% url 'inventarizatsiya_detail' s.id %}" class="btn btn-outline btn-sm">
+            <i class="fas fa-eye"></i> Ko'rish
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:26px;color:var(--text3);">
+    <i class="fas fa-clipboard" style="font-size:28px;opacity:.5;"></i>
+    <div style="margin-top:8px;">Hali sanoq o'tkazilmagan.</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

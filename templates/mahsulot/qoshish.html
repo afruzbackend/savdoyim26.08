@@ -1,0 +1,636 @@
+{% extends 'base.html' %}
+{% block title %}Mahsulot Qo'shish{% endblock %}
+{% block page_title %}Mahsulot Qo'shish{% endblock %}
+{% block content %}
+
+<style>
+.kat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.kat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 12px 6px;
+  border: 1.5px solid var(--border, #e0e0e0) !important;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: transparent !important;
+  user-select: none;
+}
+.kat-card:hover {
+  border-color: #4f8ef7 !important;
+  background: rgba(79, 142, 247, 0.1) !important;
+  transform: translateY(-1px);
+}
+.kat-card.active {
+  border-color: #2563eb !important;
+  background: rgba(37, 99, 235, 0.13) !important;
+}
+.kat-emoji { font-size: 24px; line-height: 1; }
+.kat-label {
+  font-size: 11px;
+  color: var(--text-secondary, #555);
+  text-align: center;
+  line-height: 1.3;
+}
+.kat-card.active .kat-label {
+  color: #4f8ef7;
+  font-weight: 600;
+}
+.kat-card.active .kat-emoji {
+  transform: scale(1.15);
+}
+/* ── Rasm yuklash (dropzone) ── */
+.rasm-drop{
+  position:relative; margin-top:2px;
+  min-height:170px; border:2px dashed var(--border2); border-radius:16px;
+  background:var(--bg3); cursor:pointer; overflow:hidden;
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  transition:border-color .2s, background .2s, transform .15s;
+}
+.rasm-drop:hover{ border-color:var(--accent); background:var(--glow-blue); }
+.rasm-drop.has-img{ border-style:solid; border-color:var(--border); }
+.rasm-drop img{ display:none; width:100%; height:230px; object-fit:contain; background:#00000010; }
+.rasm-drop.has-img img{ display:block; }
+.rasm-drop.has-img .rasm-ph{ display:none; }
+.rasm-ph{ padding:26px 16px; color:var(--text2); }
+.rasm-ph i{ font-size:34px; color:var(--accent); opacity:.9; }
+.rasm-ph-t{ font-weight:600; font-size:14px; margin-top:10px; color:var(--text); }
+.rasm-ph-s{ font-size:12px; color:var(--text3); margin-top:3px; }
+.rasm-change{
+  display:none; position:absolute; right:10px; bottom:10px;
+  background:rgba(0,0,0,.6); color:#fff; border:none; border-radius:9px;
+  padding:7px 12px; font-family:'Outfit',sans-serif; font-size:12.5px; font-weight:600;
+  cursor:pointer; backdrop-filter:blur(4px); transition:background .2s;
+}
+.rasm-change:hover{ background:rgba(0,0,0,.78); }
+.rasm-drop.has-img .rasm-change{ display:inline-flex; align-items:center; gap:6px; }
+.rasm-actions{ display:flex; gap:9px; margin-top:10px; flex-wrap:wrap; }
+/* ── Yaroqlilik muddati — chiroyli panel ── */
+.muddat-panel{ border:1px solid var(--border); border-radius:14px; padding:15px 16px 16px;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, var(--bg3)), var(--bg3)); }
+.muddat-head{ display:flex; align-items:center; gap:9px; margin-bottom:12px; }
+.muddat-head .mh-ic{ width:30px; height:30px; flex-shrink:0; border-radius:9px; display:grid; place-items:center;
+  background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-size:14px; }
+.muddat-head .mh-t{ font-weight:700; font-size:14px; color:var(--text); }
+.muddat-head .mh-opt{ color:var(--text3); font-weight:400; font-size:12.5px; }
+.muddat-tez{ display:flex; gap:7px; flex-wrap:wrap; }
+.mt-chip{ padding:8px 15px; border:1.5px solid var(--border); border-radius:999px;
+  background:var(--bg2); color:var(--text2); font-family:'Outfit',sans-serif; font-size:13px;
+  font-weight:600; cursor:pointer; transition:border-color .15s, color .15s, transform .12s, background .15s, box-shadow .15s; }
+.mt-chip:hover{ border-color:var(--accent); color:var(--accent); transform:translateY(-1px); }
+.mt-chip.on{ background:linear-gradient(135deg,var(--accent),var(--accent2)); border-color:transparent; color:#fff;
+  box-shadow:0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent); }
+.mt-clear{ color:var(--danger); padding:8px 12px; }
+.mt-clear:hover{ border-color:var(--danger); color:var(--danger); }
+/* datetime input — chiroyli */
+.muddat-inp-wrap{ position:relative; margin-top:11px; }
+.muddat-inp-wrap .mi-ic{ position:absolute; left:14px; top:50%; transform:translateY(-50%);
+  color:var(--accent); font-size:14px; pointer-events:none; }
+#yaroqInp{ padding-left:40px; cursor:pointer; }
+#yaroqInp::-webkit-calendar-picker-indicator{ cursor:pointer; opacity:.65; filter:invert(.5); transition:opacity .15s; }
+#yaroqInp::-webkit-calendar-picker-indicator:hover{ opacity:1; }
+/* jonli badge */
+.muddat-badge{ display:inline-flex; align-items:center; gap:7px; margin-top:11px;
+  padding:8px 13px; border-radius:10px; font-size:12.5px; font-weight:600; line-height:1.3;
+  border:1px solid var(--border); background:var(--bg2); color:var(--text3); }
+.muddat-badge.ok{ color:var(--accent3); border-color:color-mix(in srgb, var(--accent3) 40%, transparent);
+  background:color-mix(in srgb, var(--accent3) 10%, transparent); }
+.muddat-badge.bad{ color:var(--danger); border-color:color-mix(in srgb, var(--danger) 40%, transparent);
+  background:color-mix(in srgb, var(--danger) 10%, transparent); }
+</style>
+
+<div class="card" style="max-width:700px;">
+  <form id="mForm" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+      <!-- Mahsulot nomi -->
+      <div class="form-group" style="grid-column:span 2;">
+        <label class="form-label">Mahsulot nomi *</label>
+        <input type="text" name="nomi" class="form-control"
+               placeholder="Coca-Cola 1L" required>
+      </div>
+
+      <!-- Kategoriya -->
+      <div class="form-group" style="grid-column:span 2;">
+        <label class="form-label">Mahsulot turi *</label>
+        <input type="hidden" name="kategoriya" id="kategoriyaVal">
+        <div class="kat-grid" id="kategoriyaGrid">
+          <div class="kat-card" data-val="ichimliklar" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🥤</span>
+            <span class="kat-label">Ichimliklar</span>
+          </div>
+          <div class="kat-card" data-val="non" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🍞</span>
+            <span class="kat-label">Non mahsulotlari</span>
+          </div>
+          <div class="kat-card" data-val="sut" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🥛</span>
+            <span class="kat-label">Sut mahsulotlari</span>
+          </div>
+          <div class="kat-card" data-val="gosht" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🥩</span>
+            <span class="kat-label">Go'sht mahsulotlari</span>
+          </div>
+          <div class="kat-card" data-val="baliq" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🐟</span>
+            <span class="kat-label">Baliq mahsulotlari</span>
+          </div>
+          <div class="kat-card" data-val="tuxum" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🥚</span>
+            <span class="kat-label">Tuxum</span>
+          </div>
+          <div class="kat-card" data-val="un_yorma" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🌾</span>
+            <span class="kat-label">Un va yorma</span>
+          </div>
+          <div class="kat-card" data-val="makaron" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🍝</span>
+            <span class="kat-label">Makaron</span>
+          </div>
+          <div class="kat-card" data-val="shirinlik" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🍬</span>
+            <span class="kat-label">Shirinliklar</span>
+          </div>
+          <div class="kat-card" data-val="choy_qahva" onclick="tanlaKat(this)">
+            <span class="kat-emoji">☕</span>
+            <span class="kat-label">Choy va qahva</span>
+          </div>
+          <div class="kat-card" data-val="yog" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🫙</span>
+            <span class="kat-label">Yog' mahsulotlari</span>
+          </div>
+          <div class="kat-card" data-val="konserva" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🥫</span>
+            <span class="kat-label">Konserva</span>
+          </div>
+          <div class="kat-card" data-val="muzlatilgan" onclick="tanlaKat(this)">
+            <span class="kat-emoji">❄️</span>
+            <span class="kat-label">Muzlatilgan</span>
+          </div>
+          <div class="kat-card" data-val="yarim_tayyor" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🍱</span>
+            <span class="kat-label">Yarim tayyor</span>
+          </div>
+          <div class="kat-card" data-val="meva_sabzavot" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🥦</span>
+            <span class="kat-label">Meva va sabzavot</span>
+          </div>
+          <div class="kat-card" data-val="ziravorlar" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🧂</span>
+            <span class="kat-label">Ziravorlar</span>
+          </div>
+          <div class="kat-card" data-val="gazaklar" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🍿</span>
+            <span class="kat-label">Gazaklar</span>
+          </div>
+          <div class="kat-card" data-val="gigiyena" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🧴</span>
+            <span class="kat-label">Gigiyena</span>
+          </div>
+          <div class="kat-card" data-val="maishiy_kimyo" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🧹</span>
+            <span class="kat-label">Maishiy kimyo</span>
+          </div>
+          <div class="kat-card" data-val="tamaki" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🚬</span>
+            <span class="kat-label">Tamaki</span>
+          </div>
+          <div class="kat-card" data-val="bolalar" onclick="tanlaKat(this)">
+            <span class="kat-emoji">👶</span>
+            <span class="kat-label">Bolalar mahsulotlari</span>
+          </div>
+          <div class="kat-card" data-val="hayvonlar" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🐾</span>
+            <span class="kat-label">Hayvonlar uchun</span>
+          </div>
+          <div class="kat-card" data-val="hayvon_ozuqa" onclick="tanlaKat(this)">
+            <span class="kat-emoji">🦴</span>
+            <span class="kat-label">Hayvon ozuqasi</span>
+          </div>
+          <div class="kat-card" data-val="boshqa" onclick="tanlaKat(this)">
+            <span class="kat-emoji">📦</span>
+            <span class="kat-label">Boshqalar</span>
+          </div>
+        </div>
+        <div id="katXato" style="color:#e53e3e;font-size:13px;margin-top:6px;display:none;">
+          ⚠️ Mahsulot turini tanlang!
+        </div>
+      </div>
+
+      <!-- Narx -->
+      <div class="form-group">
+        <label class="form-label">Sotish narxi (UZS) *</label>
+        <input type="number" name="narx" class="form-control"
+               placeholder="15000" min="0" required>
+      </div>
+
+      <!-- Soni -->
+      <div class="form-group">
+        <label class="form-label">Ombordagi soni</label>
+        <input type="number" name="soni" class="form-control"
+               placeholder="100" min="0" step="any" value="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Minimum soni (ogohlantirish)</label>
+        <input type="number" name="minimum_son" class="form-control"
+               placeholder="10" min="0" step="any" value="5">
+      </div>
+
+      <!-- Birlik -->
+      <div class="form-group">
+        <label class="form-label">O'lchov birligi</label>
+        <select name="birlik" class="form-control">
+          <option value="dona">Dona</option>
+          <option value="kg">Kilogram</option>
+          <option value="litr">Litr</option>
+          <option value="metr">Metr</option>
+          <option value="quti">Quti</option>
+        </select>
+      </div>
+
+      <!-- Yaroqlilik muddati — tez tugmalar + jonli ko'rsatgich -->
+      <div class="form-group" style="grid-column:span 2;">
+        <div class="muddat-panel">
+          <div class="muddat-head">
+            <span class="mh-ic"><i class="fas fa-hourglass-half"></i></span>
+            <span class="mh-t">Yaroqlilik muddati <span class="mh-opt">(ixtiyoriy)</span></span>
+          </div>
+          <div class="muddat-tez">
+            <button type="button" class="mt-chip" onclick="muddatQoy(7,this)">1 hafta</button>
+            <button type="button" class="mt-chip" onclick="muddatQoy(30,this)">1 oy</button>
+            <button type="button" class="mt-chip" onclick="muddatQoy(90,this)">3 oy</button>
+            <button type="button" class="mt-chip" onclick="muddatQoy(180,this)">6 oy</button>
+            <button type="button" class="mt-chip" onclick="muddatQoy(365,this)">1 yil</button>
+            <button type="button" class="mt-chip mt-clear" onclick="muddatTozala()" title="Tozalash"><i class="fas fa-xmark"></i></button>
+          </div>
+          <div class="muddat-inp-wrap">
+            <i class="fas fa-calendar-day mi-ic"></i>
+            <input type="datetime-local" name="yaroqlilik_muddati" class="form-control" id="yaroqInp"
+                   onchange="muddatKorsat()">
+          </div>
+          <div id="muddatKorinish" class="muddat-badge">
+            <i class="fas fa-circle-info"></i> Tugmadan tanlang yoki sanani yozing — shu vaqtdan keyin sotilmaydi.
+          </div>
+        </div>
+      </div>
+
+      <!-- Barkod -->
+      <div class="form-group">
+        <label class="form-label">Barkod</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" name="barkod" class="form-control" style="flex:1;"
+                 placeholder="4870000000000" id="barkodInp">
+          <button type="button" class="btn btn-primary" onclick="kameraOch()"
+                  title="Kamera bilan skanerlash" style="flex-shrink:0;">
+            <i class="fas fa-camera"></i> <span class="kamera-txt">Skaner</span>
+          </button>
+        </div>
+        <div id="barkodInfo" style="font-size:12.5px;margin-top:6px;display:none;"></div>
+      </div>
+
+      <!-- Tavsif -->
+      <div class="form-group" style="grid-column:span 2;">
+        <label class="form-label">Tavsif</label>
+        <textarea name="tavsif" class="form-control" rows="2"
+                  placeholder="Mahsulot haqida..."></textarea>
+      </div>
+
+      <!-- Rasm (kamera yoki galereya) -->
+      <div class="form-group" style="grid-column:span 2;">
+        <label class="form-label">Mahsulot rasmi * <span style="color:var(--text3);font-weight:400;">(majburiy)</span></label>
+        <!-- Haqiqiy manba (name="rasm") — yashirin, boshqalari shunga fayl uzatadi -->
+        <input type="file" name="rasm" id="rasmInp" accept="image/*" onchange="prev(this)" required hidden>
+        <input type="file" id="camInp" accept="image/*" capture="environment" hidden>
+        <div class="rasm-drop" id="rasmDrop" onclick="document.getElementById('rasmInp').click()">
+          <img id="prevImg" alt="">
+          <div class="rasm-ph" id="rasmPh">
+            <i class="fas fa-image"></i>
+            <div class="rasm-ph-t">Rasm tanlang yoki suratga oling</div>
+            <div class="rasm-ph-s">JPG / PNG · majburiy</div>
+          </div>
+          <button type="button" class="rasm-change" id="rasmChange" onclick="event.stopPropagation();document.getElementById('rasmInp').click()">
+            <i class="fas fa-arrows-rotate"></i> O'zgartirish
+          </button>
+        </div>
+        <div class="rasm-actions">
+          <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('camInp').click()">
+            <i class="fas fa-camera"></i> Rasmga olish
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('rasmInp').click()">
+            <i class="fas fa-images"></i> Galereyadan
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button type="submit" class="btn btn-primary" id="saveBtn">
+        <i class="fas fa-save"></i> Saqlash
+      </button>
+      <a href="/product/mahsulot/" class="btn btn-outline">Bekor qilish</a>
+    </div>
+  </form>
+</div>
+
+<script>
+function tanlaKat(el) {
+  document.querySelectorAll('.kat-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('kategoriyaVal').value = el.dataset.val;
+  document.getElementById('katXato').style.display = 'none';
+}
+
+// ── Yaroqlilik muddati — tez tanlash ──
+function _dtLocal(d){
+  const p = n => String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
+}
+function muddatQoy(kun, btn){
+  const d = new Date();
+  d.setDate(d.getDate() + kun);
+  d.setHours(23, 59, 0, 0);
+  document.getElementById('yaroqInp').value = _dtLocal(d);
+  document.querySelectorAll('.mt-chip').forEach(c => c.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  muddatKorsat();
+}
+function muddatTozala(){
+  document.getElementById('yaroqInp').value = '';
+  document.querySelectorAll('.mt-chip').forEach(c => c.classList.remove('on'));
+  muddatKorsat();
+}
+function muddatKorsat(){
+  const el = document.getElementById('muddatKorinish');
+  const v = document.getElementById('yaroqInp').value;
+  el.classList.remove('ok','bad');
+  if(!v){
+    el.innerHTML = '<i class="fas fa-circle-info"></i> Tugmadan tanlang yoki sanani yozing — shu vaqtdan keyin sotilmaydi.';
+    return;
+  }
+  const d = new Date(v), now = new Date();
+  const kun = Math.round((d - now) / 86400000);
+  const sana = d.toLocaleDateString('ru-RU') + ' ' + d.toTimeString().slice(0,5);
+  if(kun < 0){
+    el.classList.add('bad');
+    el.innerHTML = '<i class="fas fa-ban"></i> Bu sana o\'tib ketgan!';
+  } else {
+    let m = kun >= 365 ? ('~' + (Math.round(kun/365*10)/10) + ' yil')
+          : kun >= 30  ? ('~' + Math.round(kun/30) + ' oy')
+          : (kun + ' kun');
+    el.classList.add('ok');
+    el.innerHTML = '<i class="fas fa-circle-check"></i> ' + m + ' qoldi · ' + sana;
+  }
+}
+
+// Son/narx maydonlari: default 0, yozishni boshlaganda 0 avtomatik o'chadi (#13)
+document.querySelectorAll('#mForm input[type="number"]').forEach(function(inp) {
+  inp.addEventListener('focus', function() {
+    if (this.value === '0') this.value = '';
+    this.select();
+  });
+  inp.addEventListener('blur', function() {
+    if (this.value.trim() === '') this.value = '0';
+  });
+});
+
+function prev(inp) {
+  if (inp.files && inp.files[0]) {
+    const r = new FileReader();
+    r.onload = e => {
+      document.getElementById('prevImg').src = e.target.result;
+      document.getElementById('rasmDrop').classList.add('has-img');
+    };
+    r.readAsDataURL(inp.files[0]);
+  }
+}
+
+// "Rasmga olish" (kamera) — olingan faylni asosiy name="rasm" inputga uzatamiz
+document.getElementById('camInp').addEventListener('change', function() {
+  if (this.files && this.files[0]) {
+    const dt = new DataTransfer();
+    dt.items.add(this.files[0]);
+    const rasmInp = document.getElementById('rasmInp');
+    rasmInp.files = dt.files;
+    prev(rasmInp);
+  }
+});
+
+document.getElementById('mForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  if (!document.getElementById('kategoriyaVal').value) {
+    document.getElementById('katXato').style.display = 'block';
+    document.getElementById('kategoriyaGrid').scrollIntoView({behavior:'smooth'});
+    return;
+  }
+
+  // Rasm majburiy (#13)
+  const rasmInp = this.querySelector('input[name="rasm"]');
+  if (!rasmInp.files || !rasmInp.files.length) {
+    showToast('Mahsulot rasmi majburiy!', 'error');
+    rasmInp.focus();
+    return;
+  }
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Saqlanmoqda...';
+
+  const fd = new FormData(this);
+  try {
+    const r = await fetch('/product/mahsulot/qoshish/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      body: fd
+    });
+    const res = await r.json();
+    if (res.status === 'ok') {
+      showToast('Mahsulot saqlandi!', 'success');
+      setTimeout(() => location.href = '/product/mahsulot/', 1000);
+    } else {
+      showToast(res.error || 'Xatolik yuz berdi!', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-save"></i> Saqlash';
+    }
+  } catch(err) {
+    showToast('Server bilan bog\'lanishda xatolik!', 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> Saqlash';
+  }
+});
+</script>
+
+<!-- ═══════ KAMERA BARKOD SKANERI (mahsulot qo'shish) ═══════ -->
+<style>
+.skan-modal{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;
+  display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);}
+.skan-box{background:var(--card);border:1px solid var(--border);border-radius:18px;
+  width:100%;max-width:440px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+.skan-head{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:15px;}
+.skan-head i{color:var(--accent);}
+.skan-close{background:none;border:none;color:var(--text2);font-size:26px;cursor:pointer;line-height:1;}
+.skan-close:hover{color:var(--danger);}
+.skan-video-wrap{position:relative;width:100%;aspect-ratio:4/3;background:#000;overflow:hidden;}
+.skan-video-wrap video{width:100%;height:100%;object-fit:cover;}
+.skan-frame{position:absolute;inset:18% 12%;border:2px solid rgba(255,255,255,0.5);
+  border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.25);}
+.skan-line{position:absolute;left:12%;right:12%;height:2px;background:var(--accent);
+  box-shadow:0 0 12px var(--accent);animation:skanScan 2s ease-in-out infinite;}
+@keyframes skanScan{0%,100%{top:20%;}50%{top:78%;}}
+.skan-status{padding:12px 18px;text-align:center;font-size:14px;font-weight:600;color:var(--text2);}
+@media (max-width:560px){.kamera-txt{display:none;}}
+</style>
+
+<div id="skanModal" class="skan-modal" style="display:none;">
+  <div class="skan-box">
+    <div class="skan-head">
+      <span><i class="fas fa-barcode"></i> Barkodni kameraga ko'rsating</span>
+      <button class="skan-close" onclick="kameraYop()">&times;</button>
+    </div>
+    <div class="skan-video-wrap">
+      <video id="skanVid" autoplay playsinline muted></video>
+      <div class="skan-frame"></div>
+      <div class="skan-line"></div>
+    </div>
+    <div class="skan-status" id="skanStatus">Kamera yoqilmoqda...</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+let skanReader=null, skanStream=null, skanRunning=false;
+
+function setStatus(t){ document.getElementById('skanStatus').textContent = t; }
+
+async function kameraOch(){
+  document.getElementById('skanModal').style.display = 'flex';
+  setStatus('Kamera yoqilmoqda...');
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    setStatus("Bu qurilmada kamera mavjud emas"); return;
+  }
+  try{
+    if(typeof ZXing !== 'undefined'){
+      skanReader = new ZXing.BrowserMultiFormatReader();
+      await skanReader.decodeFromVideoDevice(null, 'skanVid', (res) => {
+        if(res) onBarkod(res.getText());
+      });
+      skanRunning = true;
+      setStatus("Barkodni ramka ichiga joylang");
+    } else {
+      skanStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+      document.getElementById('skanVid').srcObject = skanStream;
+      skanRunning = true;
+      if('BarcodeDetector' in window){ setStatus("Barkodni ramka ichiga joylang"); bdLoop(); }
+      else setStatus("Brauzer skanerni qo'llab-quvvatlamaydi");
+    }
+  }catch(e){ setStatus("Kamera ochilmadi: " + (e.message||e)); }
+}
+
+async function bdLoop(){
+  const v = document.getElementById('skanVid');
+  let bd; try{ bd = new BarcodeDetector(); }catch(e){ return; }
+  while(skanRunning){
+    try{
+      const codes = await bd.detect(v);
+      if(codes && codes.length) onBarkod(codes[0].rawValue);
+    }catch(e){}
+    await new Promise(r => setTimeout(r, 300));
+  }
+}
+
+function bip(){
+  try{
+    const a = new (window.AudioContext||window.webkitAudioContext)();
+    const o = a.createOscillator(), g = a.createGain();
+    o.connect(g); g.connect(a.destination);
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.2, a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.15);
+    o.start(); o.stop(a.currentTime + 0.15);
+  }catch(e){}
+}
+
+// Barkod bo'yicha nomi/kategoriyani topib to'ldiradi (skaner va qo'lda yozish uchun umumiy)
+let _oxirgiQidir = '';
+async function barkodQidir(kod){
+  kod = (kod||'').trim();
+  if(!kod || kod === _oxirgiQidir) return;   // takror qidirmaymiz
+  _oxirgiQidir = kod;
+  const info = document.getElementById('barkodInfo');
+  info.style.display = 'block';
+  info.style.color = 'var(--text2)';
+  info.innerHTML = '⏳ Barkod bo\'yicha ma\'lumot qidirilmoqda...';
+  try{
+    const r = await fetch('/product/mahsulot/barkod-info/?barkod=' + encodeURIComponent(kod));
+    const d = await r.json();
+    if(d.topildi){
+      const nomInp = document.querySelector('#mForm input[name="nomi"]');
+      if(nomInp && !nomInp.value.trim()){ nomInp.value = d.nomi; }
+      if(d.kategoriya){
+        const chip = document.querySelector('.kat-card[data-val="' + d.kategoriya + '"]');
+        if(chip) tanlaKat(chip);
+      }
+      info.style.color = 'var(--accent3)';
+      info.innerHTML = '✅ Topildi: <b>' + d.nomi + '</b>' +
+        (d.kategoriya ? ' · kategoriya tanlandi' : '') +
+        '<br><span style="color:var(--text3);">Narx, soni va rasmni qo\'lda to\'ldiring.</span>';
+      showToast('Mahsulot topildi: ' + d.nomi, 'success');
+    } else {
+      info.style.color = 'var(--warn)';
+      info.innerHTML = '⚠️ Bu barkod bazada topilmadi. Nomi va boshqa maydonlarni qo\'lda kiriting.';
+    }
+  }catch(e){
+    info.style.color = 'var(--warn)';
+    info.innerHTML = '⚠️ Ma\'lumot olishda xatolik. Qo\'lda kiriting.';
+  }
+}
+
+// Kameradan kelgan barkod
+async function onBarkod(kod){
+  kod = (kod||'').trim();
+  if(!kod) return;
+  bip();
+  document.getElementById('barkodInp').value = kod;
+  kameraYop();
+  barkodQidir(kod);
+}
+
+// Barkodni QO'LDA yozganda ham qidiradi: yozib bo'lgach (700ms), Enter, yoki boshqa maydonga o'tganda
+(function(){
+  const bi = document.getElementById('barkodInp');
+  if(!bi) return;
+  let t = null;
+  bi.addEventListener('input', function(){
+    clearTimeout(t);
+    const v = bi.value.trim();
+    if(v.length >= 8){ t = setTimeout(function(){ barkodQidir(v); }, 700); }
+  });
+  bi.addEventListener('change', function(){
+    const v = bi.value.trim();
+    if(v.length >= 6){ barkodQidir(v); }
+  });
+  bi.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); barkodQidir(bi.value.trim()); }
+  });
+})();
+
+function kameraYop(){
+  skanRunning = false;
+  try{ if(skanReader){ skanReader.reset(); skanReader = null; } }catch(e){}
+  try{ if(skanStream){ skanStream.getTracks().forEach(t => t.stop()); skanStream = null; } }catch(e){}
+  document.getElementById('skanModal').style.display = 'none';
+}
+</script>
+
+{% endblock %}

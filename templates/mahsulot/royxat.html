@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% load savdo_extras %}
+{% block title %}Mahsulotlar{% endblock %}
+{% block page_title %}Mahsulotlar{% endblock %}
+{% block page_sub %}Ombor holati{% endblock %}
+{% block topbar_actions %}
+{% if user.rol in 'dokon_egasi,zavod' %}<a href="/product/mahsulot/qoshish/" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Qo'shish</a>
+<a href="{% url 'mahsulot_import' %}" class="btn btn-outline btn-sm"><i class="fas fa-file-excel"></i> Excel</a>{% endif %}
+<a href="/product/mahsulot/skanner/" class="btn btn-outline btn-sm"><i class="fas fa-barcode"></i> Skanner</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+    <div style="position:relative;flex:1;min-width:200px;">
+      <i class="fas fa-search" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text3);"></i>
+      <input type="text" id="sInp" class="form-control" style="padding-left:40px;" placeholder="Qidirish..." oninput="filt()">
+    </div>
+    <select id="fKam" class="form-control" style="width:auto;" onchange="filt()">
+      <option value="">Barchasi</option>
+      <option value="1">Kam qolganlar</option>
+      <option value="0">Yetarli</option>
+    </select>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Mahsulot</th><th>Narx</th><th>Sotib olish</th><th>Ombor</th><th>Holat</th><th>Barkod</th>{% if user.rol == 'dokon_egasi' %}<th></th>{% endif %}</tr>
+      {% for m in mahsulotlar %}
+      <tr class="mrow" data-n="{{ m.nomi|lower }}" data-k="{{ m.kam_qoldi|yesno:'1,0' }}">
+        <td>
+          <div style="display:flex;align-items:center;gap:10px;">
+            {% if m.rasm %}<img src="{{ m.rasm.url }}" loading="lazy" decoding="async" width="34" height="34" style="width:34px;height:34px;border-radius:7px;object-fit:cover;">
+            {% else %}<div style="width:34px;height:34px;border-radius:7px;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--text3);"><i class="fas fa-box"></i></div>{% endif %}
+            <div style="font-weight:600;">{{ m.nomi }}</div>
+          </div>
+        </td>
+        <td style="font-weight:700;color:var(--accent);">{{ m.narx|floatformat:0 }} UZS</td>
+        <td style="color:var(--text2);">{{ m.sotib_olish_narxi|floatformat:0 }} UZS</td>
+        <td>
+          <span style="font-weight:700;{% if m.soni == 0 %}color:var(--danger);{% elif m.kam_qoldi %}color:var(--warn);{% else %}color:var(--accent3);{% endif %}">{{ m.soni|son }} {{ m.birlik }}</span>
+          {% if m.bashorat.qolgan_kun != None %}
+          <div title="So'nggi savdolar (talab) bo'yicha aqlli bashorat{% if m.bashorat.ishonch == 'past' %} — kam ma'lumot, taxminiy{% endif %}"
+               style="margin-top:4px;font-size:11px;display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:20px;background:var(--bg3);color:var(--text2);{% if m.bashorat.qolgan_kun <= 7 %}color:var(--danger);background:rgba(239,68,68,.10);{% endif %}">
+            <i class="fas fa-robot" style="opacity:.8;"></i>
+            ≈{{ m.bashorat.qolgan_kun }} kun · {{ m.bashorat.tugash_sana|date:"d.m.Y" }}
+            {% if m.bashorat.trend == 'osish' %}<i class="fas fa-arrow-trend-up" title="Talab o'smoqda" style="color:var(--danger);"></i>
+            {% elif m.bashorat.trend == 'pasayish' %}<i class="fas fa-arrow-trend-down" title="Talab pasaymoqda" style="color:var(--accent3);"></i>{% endif %}
+          </div>
+          {% elif m.bashorat %}
+          <div style="margin-top:4px;font-size:11px;color:var(--text3);"><i class="fas fa-robot" style="opacity:.5;"></i> savdo yo'q</div>
+          {% endif %}
+        </td>
+        <td>
+          {% if m.soni == 0 %}<span class="status status-red"><i class="fas fa-times"></i> Tugagan</span>
+          {% elif m.kam_qoldi %}<span class="status status-warn"><i class="fas fa-exclamation"></i> Kam</span>
+          {% else %}<span class="status status-green"><i class="fas fa-check"></i> Yetarli</span>{% endif %}
+        </td>
+        <td style="font-size:12px;color:var(--text3);font-family:monospace;">{{ m.barkod|default:"-" }}</td>
+        {% if user.rol == 'dokon_egasi' %}
+        <td style="text-align:right;white-space:nowrap;">
+          <a href="{% url 'mahsulot_tahrir' m.id %}" class="btn btn-outline btn-sm" title="Tahrirlash">
+            <i class="fas fa-pen"></i>
+          </a>
+        </td>
+        {% endif %}
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" style="text-align:center;padding:60px;color:var(--text3);"><i class="fas fa-boxes" style="font-size:36px;margin-bottom:12px;display:block;opacity:0.3;"></i>Mahsulot yo'q</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+<script>
+function filt(){
+  const q=document.getElementById('sInp').value.toLowerCase();
+  const f=document.getElementById('fKam').value;
+  document.querySelectorAll('.mrow').forEach(r=>{
+    const nOk=r.dataset.n.includes(q);
+    const kOk=f===''||(f==='1'&&r.dataset.k==='1')||(f==='0'&&r.dataset.k==='0');
+    r.style.display=nOk&&kOk?'':'none';
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,14 @@
+Django>=4.2,<5.0
+djangorestframework>=3.14,<4.0
+django-cors-headers>=4.3,<5.0
+Pillow>=9.0
+python-dotenv>=1.0
+psycopg2-binary>=2.9
+pyTelegramBotAPI>=4.14
+openpyxl>=3.1
+reportlab>=4.0
+qrcode>=7.4
+openai>=1.40             # AI hisobot yordamchisi (TokenRouter OpenAI-mos)
+# ── Production ──
+whitenoise>=6.6          # statik fayllarni DEBUG=False da xizmat qilish
+gunicorn>=21.2           # production WSGI server (Linux)

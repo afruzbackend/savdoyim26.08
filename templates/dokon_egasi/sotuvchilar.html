@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% block title %}Sotuvchilar{% endblock %}
+{% block page_title %}Sotuvchilar{% endblock %}
+{% block page_sub %}Ro'yxat va so'rovlar{% endblock %}
+
+{% block topbar_actions %}
+<span style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;">
+  <i class="fas fa-users" style="color:var(--accent);margin-right:6px;"></i>
+  Jami: {{ sotuvchilar|length }}
+</span>
+{% endblock %}
+
+{% block content %}
+
+<!-- So'rov yuborgan sotuvchilar ro'yxati (#10) -->
+<div class="alert alert-info" style="margin-bottom:16px;">
+  <i class="fas fa-info-circle"></i> Sizning do'koningizga qo'shilish uchun so'rov yuborgan sotuvchilar.
+</div>
+
+<!-- SOTUVCHILAR KARTOCHKALARI -->
+<div class="card">
+
+  {% for s in sotuvchilar %}
+  <div class="sotuvchi-row" data-holat="{{ s.sorov_holati }}"
+    style="display:flex;align-items:center;gap:14px;padding:16px;background:var(--bg3);border-radius:14px;margin-bottom:10px;flex-wrap:wrap;border:1px solid var(--border);transition:border-color 0.2s;">
+
+    <!-- Avatar -->
+    <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex-shrink:0;box-shadow:0 0 14px var(--glow-blue);">
+      {{ s.foydalanuvchi.first_name|first|default:s.foydalanuvchi.username|first|upper }}
+    </div>
+
+    <!-- Ma'lumotlar -->
+    <div style="flex:1;min-width:160px;">
+      <div style="font-weight:700;font-size:15px;">
+        {{ s.foydalanuvchi.first_name|default:s.foydalanuvchi.username }}
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px;">
+        <i class="fas fa-user" style="width:14px;"></i> @{{ s.foydalanuvchi.username }}
+        {% if s.foydalanuvchi.telefon %}
+        &nbsp;·&nbsp;
+        <i class="fas fa-phone" style="width:14px;"></i> {{ s.foydalanuvchi.telefon }}
+        {% endif %}
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px;">
+        <i class="fas fa-calendar" style="width:14px;"></i> {{ s.yaratilgan|date:"d.m.Y H:i" }}
+      </div>
+    </div>
+
+    <!-- Holat badge -->
+    <div>
+      {% if s.sorov_holati == 'kutilmoqda' %}
+        <span class="status status-warn"><i class="fas fa-clock"></i> Kutilmoqda</span>
+      {% elif s.sorov_holati == 'tasdiqlangan' %}
+        <span class="status status-green"><i class="fas fa-check"></i> Tasdiqlangan</span>
+      {% else %}
+        <span class="status status-red"><i class="fas fa-times"></i> Rad etilgan</span>
+      {% endif %}
+    </div>
+
+    <!-- Tugmalar -->
+    <div style="display:flex;gap:8px;flex-shrink:0;">
+      {% if s.sorov_holati == 'kutilmoqda' %}
+        <form method="post" action="{% url 'sotuvchi_ruxsat' %}" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="sotuvchi_id" value="{{ s.id }}">
+          <input type="hidden" name="harakat" value="tasdiqlash">
+          <button type="submit" class="btn btn-success btn-sm">
+            <i class="fas fa-check"></i> Ruxsat
+          </button>
+        </form>
+        <form method="post" action="{% url 'sotuvchi_ruxsat' %}" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="sotuvchi_id" value="{{ s.id }}">
+          <input type="hidden" name="harakat" value="rad">
+          <button type="submit" class="btn btn-danger btn-sm">
+            <i class="fas fa-times"></i> Rad
+          </button>
+        </form>
+      {% elif s.sorov_holati == 'tasdiqlangan' %}
+        <form method="post" action="{% url 'sotuvchi_ruxsat' %}" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="sotuvchi_id" value="{{ s.id }}">
+          <input type="hidden" name="harakat" value="rad">
+          <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);">
+            <i class="fas fa-ban"></i> Bloklash
+          </button>
+        </form>
+      {% elif s.sorov_holati == 'rad_etilgan' %}
+        <form method="post" action="{% url 'sotuvchi_ruxsat' %}" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="sotuvchi_id" value="{{ s.id }}">
+          <input type="hidden" name="harakat" value="tasdiqlash">
+          <button type="submit" class="btn btn-outline btn-sm" style="color:var(--accent3);border-color:var(--accent3);">
+            <i class="fas fa-undo"></i> Qayta ruxsat
+          </button>
+        </form>
+      {% endif %}
+    </div>
+
+  </div>
+  {% empty %}
+  <div style="text-align:center;padding:70px;color:var(--text3);">
+    <i class="fas fa-user-plus" style="font-size:48px;margin-bottom:16px;display:block;opacity:0.25;"></i>
+    <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Sotuvchilar yo'q</div>
+    <div style="font-size:13px;">Sotuvchi ro'yxatdan o'tganda bu yerda ko'rinadi</div>
+  </div>
+  {% endfor %}
+
+</div>
+
+{% endblock %}

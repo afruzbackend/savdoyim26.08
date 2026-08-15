@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block title %}Zavod Dashboard{% endblock %}
+{% block page_title %}Zavod Panel{% endblock %}
+{% block page_sub %}{{ profil.zavod_nomi }}{% endblock %}
+{% block content %}
+{% include 'partials/onboarding_checklist.html' %}
+<div class="stats-grid">
+  <div class="stat-card blue">
+    <div class="stat-label"><i class="fas fa-boxes"></i> Mahsulotlar</div>
+    <div class="stat-value">{{ mahsulotlar|length }}</div>
+    <div class="stat-sub">Tur</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-label"><i class="fas fa-shopping-cart"></i> Buyurtmalar</div>
+    <div class="stat-value">{{ buyurtmalar|length }}</div>
+    <div class="stat-sub">Jami</div>
+  </div>
+  <div class="stat-card warn">
+    <div class="stat-label"><i class="fas fa-exclamation-triangle"></i> Kam Qolgan</div>
+    <div class="stat-value">{{ kam_mahsulotlar|length }}</div>
+    <div class="stat-sub">Dokonlarda</div>
+  </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:20px;">
+  <div class="card">
+    <div class="card-title"><i class="fas fa-bolt"></i> Harakatlar</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <!-- Jo'natish (yangi) -->
+      <a href="/zavod/jonatish/" class="btn btn-primary" style="justify-content:flex-start;">
+        <i class="fas fa-paper-plane"></i> Mahsulot Jo'natish
+      </a>
+      <a href="/zavod/jonatmalar/" class="btn btn-outline" style="justify-content:flex-start;">
+        <i class="fas fa-list"></i> Jo'natmalar Ro'yxati
+      </a>
+      <a href="/zavod/yetkazuvchilar/" class="btn btn-outline" style="justify-content:flex-start;">
+        <i class="fas fa-user-tie"></i> Yetkazuvchilar
+      </a>
+      <a href="/product/mahsulot/qoshish/" class="btn btn-outline" style="justify-content:flex-start;">
+        <i class="fas fa-plus"></i> Mahsulot Qo'shish
+      </a>
+      <a href="/order/buyurtma/" class="btn btn-outline" style="justify-content:flex-start;">
+        <i class="fas fa-shopping-cart"></i> Buyurtmalar
+      </a>
+      <a href=" /chat/chat/" class="btn btn-outline" style="justify-content:flex-start;">
+        <i class="fas fa-comments"></i> Dokonlar bilan Chat
+      </a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><i class="fas fa-shopping-cart"></i> So'nggi Buyurtmalar</div>
+    {% for b in buyurtmalar %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-weight:600;font-size:14px;">{{ b.dokon.dokon_nomi }}</div>
+        <div style="font-size:11px;color:var(--text3);">{{ b.yaratilgan|date:"d.m H:i" }}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="color:var(--accent);font-weight:700;font-size:13px;">{{ b.jami|floatformat:0 }}</span>
+        <a href="/zavod/jonatish/?buyurtma={{ b.id }}" class="btn btn-primary btn-sm" title="Shu do'kon manziliga jo'natish">
+          <i class="fas fa-paper-plane"></i>
+        </a>
+        <select onchange="holatYangi({{ b.id }},this.value)" class="form-control" style="width:auto;padding:4px 8px;font-size:12px;">
+          {% for val,label in b.HOLAT %}
+          <option value="{{ val }}" {% if b.holat == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:40px;color:var(--text3);">Buyurtma yo'q</div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if kam_mahsulotlar %}
+<div class="card">
+  <div class="card-title"><i class="fas fa-exclamation-circle"></i> Dokonlarda Kam Qolgan</div>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Mahsulot</th><th>Dokon</th><th>Qoldi</th><th>Minimum</th></tr>
+      {% for m in kam_mahsulotlar %}
+      <tr>
+        <td style="font-weight:600;">{{ m.nomi }}</td>
+        <td>{{ m.dokon.dokon_nomi|default:"-" }}</td>
+        <td><span style="color:var(--danger);font-weight:700;">{{ m.soni }}</span></td>
+        <td style="color:var(--text3);">{{ m.minimum_son }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<script>
+async function holatYangi(id, holat) {
+  const res = await apiPost(`/order/buyurtma/${id}/holat/`, { holat });
+  if (res.status === 'ok') showToast('Holat yangilandi!', 'success');
+  else showToast('Xatolik!', 'error');
+}
+</script>
+{% endblock %}

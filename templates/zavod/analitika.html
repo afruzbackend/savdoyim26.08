@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load l10n %}
+{% block title %}Analitika{% endblock %}
+{% block page_title %}Analitika{% endblock %}
+{% block page_sub %}Do'konlar bo'yicha buyurtma tahlili{% endblock %}
+{% block extra_css %}
+<style>
+.tv-wrap{position:relative;width:100%;height:260px;}
+.tv-svg{display:block;width:100%;height:260px;overflow:visible;}
+.tv-grid-line{stroke:var(--border);stroke-width:1;stroke-dasharray:4 6;}
+.tv-grid-base{stroke:var(--border2);stroke-width:1;}
+.tv-axis-label{fill:var(--text3);font-size:11px;}
+.tv-month-label{fill:var(--text3);font-size:10px;font-weight:600;}
+.tv-line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;}
+.tv-dot{fill:var(--card);stroke:var(--accent);stroke-width:2.5;}
+.tv-dot-last{fill:var(--accent);}
+.tv-cross{stroke:var(--accent);stroke-width:1;stroke-dasharray:3 4;opacity:0;transition:opacity .1s;}
+.tv-hover-dot{fill:var(--accent);stroke:var(--card);stroke-width:2;opacity:0;transition:opacity .1s;}
+.tv-tip{position:absolute;pointer-events:none;opacity:0;transform:translate(-50%,-125%);
+  background:var(--card);border:1px solid var(--border2);border-radius:9px;padding:7px 11px;
+  font-size:12px;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.35);transition:opacity .12s;z-index:5;}
+.tv-tip b{color:var(--accent);}
+</style>
+{% endblock %}
+{% block content %}
+
+<div class="stats-grid" style="margin-bottom:20px;">
+  <div class="stat-card blue">
+    <div class="stat-label"><i class="fas fa-coins"></i> Jami savdo</div>
+    <div class="stat-value" style="font-size:22px;">{{ jami_summa|floatformat:0 }}</div>
+    <div class="stat-sub">so'm (bekorlarsiz)</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-label"><i class="fas fa-shopping-cart"></i> Buyurtmalar</div>
+    <div class="stat-value">{{ buyurtma_soni }}</div>
+    <div class="stat-sub">ta</div>
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-label"><i class="fas fa-store"></i> Do'konlar</div>
+    <div class="stat-value">{{ dokonlar|length }}</div>
+    <div class="stat-sub">oluvchi</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+    <i class="fas fa-chart-line" style="color:var(--accent);"></i> Oylik buyurtma hajmi
+    <span style="margin-left:auto;font-size:12px;color:var(--text3);">{% now "Y" %}</span>
+  </div>
+  <div class="tv-wrap">
+    <svg id="tvChart" class="tv-svg"></svg>
+    <div id="tvTip" class="tv-tip"></div>
+  </div>
+</div>
+{{ yillik_data|json_script:"yillikData" }}
+
+<div class="card">
+  <div class="card-title"><i class="fas fa-ranking-star" style="color:#fbbf24;"></i> Ko'p oluvchi do'konlar</div>
+  {% if dokonlar %}
+  <div class="table-wrap">
+    <table>
+      <tr><th>#</th><th>Do'kon</th><th>Buyurtmalar</th><th>Jami summa</th></tr>
+      {% for d in dokonlar %}
+      <tr>
+        <td style="font-weight:800;">{% if forloop.counter == 1 %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}{{ forloop.counter }}{% endif %}</td>
+        <td style="font-weight:700;">{{ d.dokon__dokon_nomi|default:"—" }}</td>
+        <td>{{ d.soni }} ta</td>
+        <td style="color:var(--accent);font-weight:800;">{{ d.summa|floatformat:0 }} so'm</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:60px;color:var(--text3);">
+    <i class="fas fa-store-slash" style="font-size:40px;opacity:0.25;margin-bottom:14px;display:block;"></i>
+    Hali buyurtma yo'q
+  </div>
+  {% endif %}
+</div>
+
+<script>
+(function(){
+  const el=document.getElementById('yillikData');
+  const raw=el?JSON.parse(el.textContent||'[]'):[];
+  const svg=document.getElementById('tvChart'), tip=document.getElementById('tvTip');
+  if(!svg||!raw.length)return;
+  const wrap=svg.parentElement, NS='http://www.w3.org/2000/svg';
+  const H=260, padL=54, padR=14, padT=14, padB=26;
+  // Y-o'q maksimumi — ma'lumotdan avtomatik (yaxlitlab)
+  const maxVal=Math.max(...raw.map(d=>d.summa||0), 1);
+  const p=Math.pow(10, Math.floor(Math.log10(maxVal)));
+  const MAX=Math.ceil(maxVal/p)*p || 1;
+  const mln=n=>{ n=n||0; if(n>=1e6)return (n/1e6).toFixed(n>=1e7?0:1)+' mln'; if(n>=1e3)return Math.round(n/1e3)+' ming'; return Math.round(n); };
+  const pul=n=>Math.round(n||0).toLocaleString('ru-RU').replace(/,/g,' ');
+  let pts=[],cross,hdot,VW=600;
+  function smooth(pp){ if(pp.length===1)return `M ${pp[0].x} ${pp[0].y}`; let d=`M ${pp[0].x} ${pp[0].y}`;
+    for(let i=0;i<pp.length-1;i++){const a=pp[i-1]||pp[i],b=pp[i],c=pp[i+1],e=pp[i+2]||c;
+      d+=` C ${b.x+(c.x-a.x)/6} ${b.y+(c.y-a.y)/6}, ${c.x-(e.x-b.x)/6} ${c.y-(e.y-b.y)/6}, ${c.x} ${c.y}`;} return d; }
+  function el2(t,a){const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n;}
+  function draw(){
+    const W=wrap.clientWidth||600; VW=W; const iw=W-padL-padR, ih=H-padT-padB;
+    svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.innerHTML='';
+    const defs=el2('defs',{}); defs.innerHTML='<linearGradient id="tvGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent)" stop-opacity="0.30"/><stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></linearGradient>'; svg.appendChild(defs);
+    const X=i=>padL+(raw.length<=1?iw/2:iw*i/(raw.length-1));
+    const Y=v=>padT+ih*(1-Math.min((v||0)/MAX,1));
+    for(let g=0;g<=3;g++){ const val=MAX*g/3, yy=Y(val);
+      svg.appendChild(el2('line',{x1:padL,x2:W-padR,y1:yy,y2:yy,class:g===0?'tv-grid-base':'tv-grid-line'}));
+      const tx=el2('text',{x:padL-8,y:yy+3,'text-anchor':'end',class:'tv-axis-label'}); tx.textContent=mln(val); svg.appendChild(tx); }
+    pts=raw.map((d,i)=>({x:X(i),y:Y(d.summa),summa:d.summa,nom:d.nom,real:d.summa!=null}));
+    const real=pts.filter(p=>p.real);
+    if(real.length){ const base=Y(0), line=smooth(real);
+      svg.appendChild(el2('path',{d:line+` L ${real[real.length-1].x} ${base} L ${real[0].x} ${base} Z`,fill:'url(#tvGrad)'}));
+      svg.appendChild(el2('path',{d:line,class:'tv-line'}));
+      real.forEach((p,idx)=>svg.appendChild(el2('circle',{cx:p.x,cy:p.y,r:idx===real.length-1?4.5:3,class:idx===real.length-1?'tv-dot tv-dot-last':'tv-dot'}))); }
+    pts.forEach(p=>{const t=el2('text',{x:p.x,y:H-8,'text-anchor':'middle',class:'tv-month-label'});t.textContent=p.nom;svg.appendChild(t);});
+    cross=el2('line',{class:'tv-cross',y1:padT,y2:padT+ih}); svg.appendChild(cross);
+    hdot=el2('circle',{r:5,class:'tv-hover-dot'}); svg.appendChild(hdot);
+  }
+  function hover(e){ const r=svg.getBoundingClientRect(); const mx=(e.clientX-r.left)*(VW/r.width);
+    let near=null; for(const p of pts){if(p.real&&(!near||Math.abs(p.x-mx)<Math.abs(near.x-mx)))near=p;}
+    if(!near)return leave();
+    cross.setAttribute('x1',near.x);cross.setAttribute('x2',near.x);cross.style.opacity=1;
+    hdot.setAttribute('cx',near.x);hdot.setAttribute('cy',near.y);hdot.style.opacity=1;
+    tip.style.opacity=1; tip.style.left=(near.x/VW*r.width)+'px'; tip.style.top=(near.y/H*r.height)+'px';
+    tip.innerHTML=`${near.nom} · <b>${pul(near.summa)} so'm</b>`; }
+  function leave(){tip.style.opacity=0;if(cross)cross.style.opacity=0;if(hdot)hdot.style.opacity=0;}
+  draw(); svg.addEventListener('mousemove',hover); svg.addEventListener('mouseleave',leave);
+  let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(draw,150);});
+})();
+</script>
+{% endblock %}

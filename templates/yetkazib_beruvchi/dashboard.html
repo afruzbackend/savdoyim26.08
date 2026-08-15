@@ -1,0 +1,342 @@
+{% extends 'base.html' %}
+{% load l10n %}
+{% block title %}Yetkazuvchi Dashboard{% endblock %}
+{% block page_title %}Yetkazib Beruvchi{% endblock %}
+{% block page_sub %}{{ profil.foydalanuvchi.get_full_name|default:profil.foydalanuvchi.username }}{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+#map {
+  height: 300px;
+  border-radius: 10px;
+  overflow: hidden;
+  z-index: 1;
+  position: relative;
+}
+</style>
+{% endblock %}
+{% block content %}
+
+{% include 'partials/onboarding_checklist.html' %}
+
+<!-- Statistika (kunlik hisobot) -->
+<div class="stats-grid">
+  <div class="stat-card green">
+    <div class="stat-label"><i class="fas fa-check-double"></i> Bugun yetkazildi</div>
+    <div class="stat-value">{{ kun_yetkazildi }}</div>
+    <div class="stat-sub">ta jo'natma</div>
+  </div>
+  <div class="stat-card blue">
+    <div class="stat-label"><i class="fas fa-coins"></i> Bugungi daromad</div>
+    <div class="stat-value" style="font-size:22px;">{{ kun_daromad|floatformat:0 }}</div>
+    <div class="stat-sub">so'm (yetkazilgan)</div>
+  </div>
+  <div class="stat-card warn">
+    <div class="stat-label"><i class="fas fa-truck-fast"></i> Faol jo'natmalar</div>
+    <div class="stat-value">{{ faol_soni }}</div>
+    <div class="stat-sub">yo'lda / qabul qilingan</div>
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-label"><i class="fas fa-star" style="color:#fbbf24;"></i> Reytingim</div>
+    <div class="stat-value">{% if reyting %}{{ reyting }}{% else %}—{% endif %}</div>
+    <div class="stat-sub">{% if reyting %}{{ reyting_n }} ta baho{% else %}hali baho yo'q{% endif %}</div>
+  </div>
+</div>
+
+<div class="grid-2">
+
+  <!-- Jo'natmalar ro'yxati -->
+  <div class="card">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+      <span><i class="fas fa-truck"></i> Jo'natmalar</span>
+      <button onclick="skanerModal()" class="btn btn-outline btn-sm"><i class="fas fa-barcode"></i> Skaner</button>
+    </div>
+
+    {% for j in jonatmalar %}
+    <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+        <div>
+          <div style="font-weight:700;font-size:14px;">Jo'natma #{{ j.id }}</div>
+          <div style="font-size:12px;color:var(--text2);">{{ j.zavod.zavod_nomi }}</div>
+          <div style="font-size:11px;color:var(--text3);">{{ j.yaratilgan|date:"d.m.Y H:i" }}</div>
+        </div>
+        <span class="status
+          {% if j.holat == 'yetkazildi' %}status-green
+          {% elif j.holat == 'yolda' %}status-blue
+          {% elif j.holat == 'qabul_qilindi' %}status-blue
+          {% elif j.holat == 'qabul_kutilmoqda' %}status-warn
+          {% else %}status-warn{% endif %}">
+          {{ j.get_holat_display }}
+        </span>
+      </div>
+
+      <!-- Mahsulotlar -->
+      <div style="margin-bottom:10px;">
+        {% for m in j.mahsulotlar.all %}
+        <div style="font-size:12px;color:var(--text2);padding:2px 0;">
+          <i class="fas fa-box"></i> {{ m.mahsulot_nomi }} × {{ m.soni }}
+          <span style="color:var(--accent);">{{ m.narx|floatformat:0 }} so'm</span>
+        </div>
+        {% endfor %}
+        <div style="font-weight:700;font-size:13px;margin-top:6px;color:var(--accent);">
+          Jami: {{ j.jami_summa|floatformat:0 }} so'm
+        </div>
+      </div>
+
+      <!-- Yetkazish manzili + navigatsiya -->
+      {% if j.xaritada_bormi %}
+      <div style="font-size:12px;margin-bottom:10px;padding:8px 10px;background:var(--card);border-radius:8px;">
+        <div><i class="fas fa-location-dot" style="color:var(--danger);"></i> <b>{{ j.manzil_nomi }}</b></div>
+        {% if j.manzil_matn %}<div style="font-size:11px;color:var(--text3);margin-top:2px;">{{ j.manzil_matn|truncatechars:64 }}</div>{% endif %}
+        <button onclick="yolOch({{ j.manzil_lat|unlocalize }},{{ j.manzil_lng|unlocalize }})" class="btn btn-outline btn-sm" style="margin-top:8px;">
+          <i class="fas fa-diamond-turn-right"></i> Yo'l (jonli tirbandlik)
+        </button>
+      </div>
+      {% endif %}
+
+      <!-- Tugmalar -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        {% if j.holat == 'qabul_kutilmoqda' %}
+        <button onclick="qabulQil({{ j.id }})" class="btn btn-primary btn-sm">
+          <i class="fas fa-check"></i> Qabul Qilish
+        </button>
+        {% endif %}
+        {% if j.holat == 'qabul_qilindi' %}
+        <button onclick="holatO({{ j.id }},'yolda')" class="btn btn-outline btn-sm">
+          <i class="fas fa-truck"></i> Yo'lga Chiqish
+        </button>
+        {% endif %}
+        {% if j.holat == 'yolda' %}
+        <button onclick="holatO({{ j.id }},'yetkazildi')" class="btn btn-success btn-sm">
+          <i class="fas fa-check-double"></i> Yetkazildi
+        </button>
+        {% endif %}
+        {% if j.holat == 'yetkazildi' and not j.dokon_qabul %}
+        <button onclick="qrKorsat({{ j.id }})" class="btn btn-primary btn-sm">
+          <i class="fas fa-qrcode"></i> QR ko'rsatish
+        </button>
+        {% elif j.holat == 'yetkazildi' and j.dokon_qabul %}
+        <span style="font-size:12px;color:var(--accent3);"><i class="fas fa-circle-check"></i> Do'kon qabul qildi</span>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:60px;color:var(--text3);">
+      <i class="fas fa-truck" style="font-size:40px;margin-bottom:14px;display:block;opacity:0.3;"></i>
+      Jo'natma yo'q
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Xarita -->
+  <div class="card" style="overflow:hidden;">
+    <div class="card-title"><i class="fas fa-map"></i> Aqlli Xarita &amp; Marshrut</div>
+    <div id="map"></div>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="meningJoyim()" class="btn btn-primary btn-sm">
+        <i class="fas fa-location-arrow"></i> Joylashuvim
+      </button>
+      <button onclick="optimalMarshrut()" class="btn btn-outline btn-sm">
+        <i class="fas fa-route"></i> Optimal marshrut
+      </button>
+    </div>
+    <div id="marshrutInfo" style="margin-top:10px;"></div>
+  </div>
+
+</div>
+
+{{ manzillar|json_script:"manzillarData" }}
+
+<!-- Skaner Modal -->
+<div id="skaner-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border-radius:16px;padding:24px;width:340px;max-width:95vw;">
+    <div style="font-weight:700;font-size:16px;margin-bottom:14px;"><i class="fas fa-barcode"></i> Barkod Skanerlash</div>
+    <input type="text" id="barkod-input" class="form-control" placeholder="Barkodni skanerlang..." style="margin-bottom:12px;">
+    <div style="display:flex;gap:8px;">
+      <button onclick="barkodQabul()" class="btn btn-primary" style="flex:1;"><i class="fas fa-check"></i> Qabul Qilish</button>
+      <button onclick="modalYop()" class="btn btn-outline"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="barkod-natija" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+</div>
+
+<!-- QR modal — do'kon skaner qilishi uchun -->
+<div id="qr-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border-radius:16px;padding:24px;width:340px;max-width:95vw;text-align:center;">
+    <div style="font-weight:800;font-size:17px;margin-bottom:6px;"><i class="fas fa-qrcode" style="color:var(--accent);"></i> Do'konga ko'rsating</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">Do'kon shu QR ni skaner qilsa, mahsulotlar avtomatik omboriga qo'shiladi.</div>
+    <div style="background:#fff;padding:14px;border-radius:12px;display:inline-block;">
+      <img id="qrImg" src="" alt="QR" style="width:220px;height:220px;display:block;">
+    </div>
+    <div style="margin-top:10px;font-family:monospace;font-weight:700;letter-spacing:1px;" id="qrBarkod"></div>
+    <button onclick="qrOynaYop()" class="btn btn-outline" style="margin-top:16px;width:100%;justify-content:center;"><i class="fas fa-check"></i> Yopish</button>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// Yetkazish manzillari (faol jo'natmalar)
+let MANZILLAR = [];
+try { MANZILLAR = JSON.parse(document.getElementById('manzillarData').textContent || '[]'); } catch(e){}
+let uLat=null, uLng=null, marshrutQatlam=null, siznMarker=null;
+
+// Ikki nuqta orasidagi masofa (metr) — haversine
+function _hav(a, b){
+  const R=6371000, r=x=>x*Math.PI/180;
+  const dLa=r(b.lat-a.lat), dLo=r(b.lng-a.lng);
+  const s=Math.sin(dLa/2)**2 + Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLo/2)**2;
+  return R*2*Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
+}
+// Eng yaqin qo'shni tartibi (nearest-neighbor) — sodda marshrut optimizatsiya
+function _nnTartib(start, nuqtalar){
+  const rem=nuqtalar.slice(), order=[]; let cur=start;
+  while(rem.length){
+    let bi=0, bd=Infinity;
+    for(let i=0;i<rem.length;i++){ const d=_hav(cur, rem[i]); if(d<bd){bd=d; bi=i;} }
+    cur=rem[bi]; order.push(cur); rem.splice(bi,1);
+  }
+  return order;
+}
+
+// Xarita init + manzil markerlari
+document.addEventListener('DOMContentLoaded', function() {
+  const map = L.map('map').setView([41.2995, 69.2401], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: 'OSM' }).addTo(map);
+  window._map = map;
+  window._manzilMarkerlar = L.layerGroup().addTo(map);
+  const koords=[];
+  MANZILLAR.forEach((m, i) => {
+    const mk = L.marker([m.lat, m.lng]).addTo(window._manzilMarkerlar)
+      .bindPopup(`<b>${m.nomi}</b><br>${m.manzil||''}`);
+    koords.push([m.lat, m.lng]);
+  });
+  if (koords.length) map.fitBounds(L.latLngBounds(koords).pad(0.3));
+  setTimeout(() => map.invalidateSize(), 300);
+});
+
+function meningJoyim() {
+  if (!navigator.geolocation) { showToast("GPS qo'llab-quvvatlanmaydi", 'error'); return; }
+  navigator.geolocation.getCurrentPosition(p => {
+    uLat = p.coords.latitude; uLng = p.coords.longitude;
+    window._map.setView([uLat, uLng], 14);
+    if (siznMarker) siznMarker.remove();
+    siznMarker = L.marker([uLat, uLng]).addTo(window._map).bindPopup('Siz shu yerdasiz').openPopup();
+    apiPost('{% url "update_location" %}', { latitude: uLat, longitude: uLng });
+    showToast('Joylashuv yangilandi!', 'success');
+  }, () => showToast('GPS ruxsati kerak!', 'error'));
+}
+
+// Bitta manzilga navigatsiya — Google Maps (jonli tirbandlik / yopiq yo'llar)
+function yolOch(lat, lng){
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
+}
+
+// Optimal marshrut — barcha manzillar bo'ylab eng qisqa tartibda haqiqiy yo'l
+async function optimalMarshrut(){
+  if (!MANZILLAR.length){ showToast('Yetkaziladigan manzil yo\'q', 'info'); return; }
+  if (!navigator.geolocation){ showToast("GPS qo'llab-quvvatlanmaydi", 'error'); return; }
+  showToast('Marshrut hisoblanmoqda...', 'info');
+  navigator.geolocation.getCurrentPosition(async p => {
+    uLat=p.coords.latitude; uLng=p.coords.longitude;
+    const start={lat:uLat, lng:uLng};
+    const tartib=_nnTartib(start, MANZILLAR);          // eng yaqindan boshlab
+    const nuqtalar=[start, ...tartib];
+    const coordStr=nuqtalar.map(n=>`${n.lng},${n.lat}`).join(';');
+    let chizildi=false, km=0, mins=0;
+    try{
+      const url=`https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`;
+      const d=await fetch(url).then(r=>r.json());
+      if(d.code==='Ok' && d.routes && d.routes.length){
+        const rt=d.routes[0];
+        const line=rt.geometry.coordinates.map(c=>[c[1],c[0]]);
+        if(marshrutQatlam) marshrutQatlam.remove();
+        marshrutQatlam=L.polyline(line, {color:'#00d4ff', weight:5, opacity:.8}).addTo(window._map);
+        km=(rt.distance/1000).toFixed(1); mins=Math.round(rt.duration/60);
+        window._map.fitBounds(marshrutQatlam.getBounds().pad(0.2));
+        chizildi=true;
+      }
+    }catch(e){}
+    if(!siznMarker){ siznMarker=L.marker([uLat,uLng]).addTo(window._map).bindPopup('Siz'); }
+    // Tartiblangan bosqichlar ro'yxati
+    let h=`<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">`;
+    if(chizildi) h+=`<i class="fas fa-route" style="color:var(--accent);"></i> <b>${km} km</b> · ~${mins} daqiqa · ${tartib.length} manzil`;
+    else h+=`<i class="fas fa-triangle-exclamation" style="color:var(--warn);"></i> Yo'l xizmati javob bermadi — tartib quyida`;
+    h+=`</div>`;
+    tartib.forEach((m,i)=>{
+      h+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border);">
+        <span style="min-width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${i+1}</span>
+        <span style="flex:1;font-size:13px;"><b>${m.nomi}</b><br><span style="color:var(--text3);font-size:11px;">${m.manzil||''}</span></span>
+        <button onclick="yolOch(${m.lat},${m.lng})" class="btn btn-outline btn-sm"><i class="fas fa-diamond-turn-right"></i></button>
+      </div>`;
+    });
+    document.getElementById('marshrutInfo').innerHTML=h;
+    showToast('Optimal marshrut tayyor!', 'success');
+  }, () => showToast('GPS ruxsati kerak!', 'error'));
+}
+
+async function qabulQil(id) {
+  const res = await apiPost(`{% url "jonatma_qabul" 0 %}`.replace('/0/', `/${id}/`), {});
+  if (res.status === 'ok') { showToast("Qabul qilindi!", 'success'); setTimeout(() => location.reload(), 800); }
+  else showToast(res.error || 'Xatolik!', 'error');
+}
+
+async function holatO(id, holat) {
+  const res = await apiPost(`{% url "jonatma_holat" 0 %}`.replace('/0/', `/${id}/`), { holat });
+  if (res.status === 'ok') {
+    showToast('Yangilandi!', 'success');
+    if (holat === 'yetkazildi' && res.qr) { qrOynaOch(res.qr, res.barkod); }
+    else { setTimeout(() => location.reload(), 800); }
+  } else showToast(res.error || 'Xatolik!', 'error');
+}
+
+async function qrKorsat(id){
+  const res = await apiPost(`{% url "jonatma_qr" 0 %}`.replace('/0/', `/${id}/`), {});
+  if (res.status === 'ok') qrOynaOch(res.qr, res.barkod);
+  else showToast(res.error || 'Xatolik!', 'error');
+}
+
+function qrOynaOch(qr, barkod){
+  document.getElementById('qrImg').src = qr;
+  document.getElementById('qrBarkod').textContent = barkod;
+  document.getElementById('qr-modal').style.display = 'flex';
+}
+function qrOynaYop(){
+  document.getElementById('qr-modal').style.display = 'none';
+  location.reload();
+}
+
+function skanerModal() {
+  const m = document.getElementById('skaner-modal');
+  m.style.display = 'flex';
+  setTimeout(() => document.getElementById('barkod-input').focus(), 100);
+}
+
+function modalYop() {
+  document.getElementById('skaner-modal').style.display = 'none';
+  document.getElementById('barkod-input').value = '';
+  document.getElementById('barkod-natija').textContent = '';
+}
+
+document.getElementById('barkod-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') barkodQabul();
+});
+
+async function barkodQabul() {
+  const barkod = document.getElementById('barkod-input').value.trim();
+  if (!barkod) { showToast("Barkod kiriting!", 'error'); return; }
+  const res = await apiPost('{% url "barkod_qabul" %}', { barkod });
+  const natija = document.getElementById('barkod-natija');
+  if (res.status === 'ok') {
+    natija.innerHTML = `<span style="color:var(--accent3);"><i class="fas fa-check-circle"></i> ${res.xabar}</span>`;
+    showToast(res.xabar, 'success');
+    setTimeout(() => { modalYop(); location.reload(); }, 1200);
+  } else {
+    natija.innerHTML = `<span style="color:var(--danger);"><i class="fas fa-times-circle"></i> ${res.error}</span>`;
+    showToast(res.error, 'error');
+  }
+}
+</script>
+{% endblock %}

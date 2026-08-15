@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+{% load savdo_extras %}
+{% block title %}{{ mahsulot.nomi }}{% endblock %}
+{% block page_title %}{{ mahsulot.nomi }}{% endblock %}
+{% block page_sub %}{% if mahsulot.dokon %}{{ mahsulot.dokon.dokon_nomi }}{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .rev-star{color:#fbbf24}.rev-star.muted{color:var(--border2)}
+  .dist-row{display:flex;align-items:center;gap:8px;font-size:12px;margin:3px 0}
+  .dist-bar{flex:1;height:8px;border-radius:6px;background:var(--bg3);overflow:hidden}
+  .dist-bar span{display:block;height:100%;background:#fbbf24}
+  .star-input i{font-size:30px;color:var(--border2);cursor:pointer;transition:color .15s}
+  .star-input i.on{color:#fbbf24}
+  .rev-thumb{width:64px;height:64px;border-radius:10px;object-fit:cover;border:1px solid var(--border)}
+  .verified{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#059669;background:var(--glow-green,rgba(16,185,129,.12));padding:2px 8px;border-radius:20px}
+  #camModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;align-items:center;justify-content:center;padding:16px}
+  #camModal.open{display:flex}
+  #camBox{background:var(--card);border-radius:16px;padding:16px;max-width:460px;width:100%}
+  #camVideo{width:100%;border-radius:12px;background:#000}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:none;">{% csrf_token %}</div>
+
+<!-- MAHSULOT -->
+<div class="card" style="display:flex;gap:20px;flex-wrap:wrap;">
+  <div style="width:200px;height:200px;border-radius:14px;overflow:hidden;background:var(--bg3);flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+    {% if mahsulot.rasm %}<img src="{{ mahsulot.rasm.url }}" style="width:100%;height:100%;object-fit:cover;">
+    {% else %}<i class="fas fa-box" style="font-size:52px;color:var(--text3);opacity:.4;"></i>{% endif %}
+  </div>
+  <div style="flex:1;min-width:220px;">
+    <h2 style="font-size:22px;font-weight:800;">{{ mahsulot.nomi }}</h2>
+    <div style="margin:6px 0;">
+      <span style="font-size:15px;font-weight:700;color:#fbbf24;">★ {{ stats.ortacha }}</span>
+      <span style="color:var(--text3);font-size:13px;">({{ stats.jami }} ta baho)</span>
+    </div>
+    <div style="font-size:24px;font-weight:800;color:var(--accent);margin:10px 0;">{{ mahsulot.narx|floatformat:0 }} so'm</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:14px;">
+      {% if mahsulot.soni > 0 %}<i class="fas fa-check-circle" style="color:var(--accent3);"></i> Mavjud ({{ mahsulot.soni|son }} {{ mahsulot.birlik }})
+      {% else %}<i class="fas fa-times-circle" style="color:var(--danger);"></i> Tugagan{% endif %}
+    </div>
+    {% if user.rol == 'mijoz' and mahsulot.soni > 0 %}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-outline btn-sm" onclick="savatga({{ mahsulot.id }})"><i class="fas fa-cart-plus"></i> Savatga</button>
+      <button class="btn btn-primary btn-sm" onclick="tezBuyurtma({{ mahsulot.id }})"><i class="fas fa-bolt"></i> Hoziroq buyurtma</button>
+    </div>
+    {% elif mehmon %}
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <i class="fas fa-lock" style="color:var(--text3);"></i>
+      <span style="font-size:13px;color:var(--text2);">Buyurtma berish uchun tizimga kiring</span>
+      <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-primary btn-sm" style="margin-left:auto;"><i class="fas fa-right-to-bracket"></i> Kirish</a>
+      <a href="{% url 'register' %}" class="btn btn-outline btn-sm"><i class="fas fa-user-plus"></i> Ro'yxatdan o'tish</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- REYTING TAQSIMOTI -->
+<div class="card" style="margin-top:14px;">
+  <div class="card-title"><i class="fas fa-chart-simple"></i> Reyting</div>
+  <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+    <div style="text-align:center;">
+      <div style="font-size:44px;font-weight:800;color:#fbbf24;line-height:1;">{{ stats.ortacha }}</div>
+      <div style="font-size:12px;color:var(--text3);">{{ stats.jami }} ta baho</div>
+    </div>
+    <div style="flex:1;min-width:200px;">
+      {% for star, soni, foiz in taqsimot_list %}
+      <div class="dist-row"><span style="width:28px;">{{ star }}★</span><div class="dist-bar"><span style="width:{{ foiz }}%;"></span></div><span style="width:38px;text-align:right;">{{ foiz }}%</span></div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- SHARH YOZISH / TAHRIRLASH -->
+{% if can_review or mening_sharhim %}
+<div class="card" style="margin-top:14px;">
+  <div class="card-title"><i class="fas fa-pen"></i> {% if mening_sharhim %}Sharhingizni tahrirlash{% else %}Sharh qoldiring{% endif %}</div>
+  <form id="sharhForm" enctype="multipart/form-data">
+    <input type="hidden" name="mahsulot_id" value="{{ mahsulot.id }}">
+    <div class="star-input" id="starInput" style="margin-bottom:12px;">
+      {% for i in "12345" %}<i class="fas fa-star" data-v="{{ forloop.counter }}" onclick="setStar({{ forloop.counter }})"></i>{% endfor %}
+    </div>
+    <input type="hidden" name="yulduz" id="yulduzVal" value="{{ mening_sharhim.yulduz|default:5 }}">
+    <textarea name="izoh" class="form-control" rows="3" placeholder="Izoh (ixtiyoriy)...">{{ mening_sharhim.izoh|default:'' }}</textarea>
+    <div style="display:flex;align-items:center;gap:10px;margin:12px 0;flex-wrap:wrap;">
+      <button type="button" class="btn btn-outline btn-sm" onclick="kameraOch()"><i class="fas fa-camera"></i> Rasmga olish (kamera)</button>
+      <span style="font-size:12px;color:var(--text3);">Faqat kamera · 3 tagacha</span>
+    </div>
+    <div id="rasmThumbs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
+    <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;"><i class="fas fa-paper-plane"></i> {% if mening_sharhim %}Yangilash{% else %}Yuborish{% endif %}</button>
+  </form>
+</div>
+{% endif %}
+
+{% if mehmon %}
+<div class="card" style="margin-top:14px;text-align:center;">
+  <i class="fas fa-star" style="color:#fbbf24;font-size:26px;"></i>
+  <div style="font-weight:700;margin:8px 0 4px;">Sharh qoldirmoqchimisiz?</div>
+  <div style="font-size:13px;color:var(--text3);margin-bottom:12px;">Baho va sharh qoldirish uchun tizimga kiring</div>
+  <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-primary btn-sm"><i class="fas fa-right-to-bracket"></i> Kirish</a>
+</div>
+{% endif %}
+
+<!-- SHARHLAR -->
+<div class="card" style="margin-top:14px;">
+  <div class="card-title"><i class="fas fa-comments"></i> Sharhlar ({{ stats.jami }})</div>
+  {% for r in sharhlar %}
+  <div style="padding:14px 2px;border-bottom:1px solid var(--border);">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;">
+          {{ r.foydalanuvchi.first_name|first|default:r.foydalanuvchi.username|first|upper }}
+        </div>
+        <div>
+          <div style="font-weight:700;font-size:14px;">{{ r.foydalanuvchi.first_name|default:r.foydalanuvchi.username }}
+            {% if r.xaridor_tasdiqlangan %}<span class="verified"><i class="fas fa-circle-check"></i> Tasdiqlangan xaridor</span>{% endif %}
+          </div>
+          <div style="font-size:11px;color:var(--text3);">{{ r.yaratilgan|date:"d.m.Y" }}</div>
+        </div>
+      </div>
+      <div style="white-space:nowrap;">{% for i in "12345" %}<i class="fas fa-star rev-star {% if forloop.counter > r.yulduz %}muted{% endif %}"></i>{% endfor %}</div>
+    </div>
+    {% if r.izoh %}<div style="font-size:13.5px;color:var(--text2);margin-top:8px;line-height:1.5;">{{ r.izoh }}</div>{% endif %}
+    {% if r.rasmlar.all %}
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+      {% for rasm in r.rasmlar.all %}<a href="{{ rasm.rasm.url }}" target="_blank"><img src="{{ rasm.rasm.url }}" loading="lazy" decoding="async" class="rev-thumb"></a>{% endfor %}
+    </div>
+    {% endif %}
+    {% if is_admin %}
+    <div style="margin-top:8px;">
+      <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);" onclick="moderatsiya({{ r.id }},'yashir')"><i class="fas fa-eye-slash"></i> Yashirish</button>
+    </div>
+    {% endif %}
+  </div>
+  {% empty %}
+  <div style="text-align:center;padding:40px;color:var(--text3);">Hozircha sharhlar yo'q</div>
+  {% endfor %}
+  {% include 'buyurtma/_pagination.html' %}
+</div>
+
+<!-- KAMERA MODAL -->
+<div id="camModal"><div id="camBox">
+  <video id="camVideo" autoplay playsinline></video>
+  <div style="display:flex;gap:8px;margin-top:12px;">
+    <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="suratOl()"><i class="fas fa-circle"></i> Suratga olish</button>
+    <button class="btn btn-outline" onclick="kameraYop()">Yopish</button>
+  </div>
+</div></div>
+
+<script>
+function _csrf(){const m=document.querySelector('input[name=csrfmiddlewaretoken]');return m?m.value:'';}
+
+/* ── Buyurtma ── */
+async function savatga(id){
+  const r=await fetch('{% url "savatga_qoshish" %}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':_csrf()},body:JSON.stringify({mahsulot_id:id})}).then(x=>x.json());
+  if(r.success)showToast(r.message,'success');else showToast(r.message||'Xatolik','error');
+}
+async function tezBuyurtma(id){
+  const r=await fetch('{% url "tez_buyurtma" %}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':_csrf()},body:JSON.stringify({mahsulot_id:id})}).then(x=>x.json());
+  if(r.success){showToast(r.message,'success');setTimeout(()=>location.href='/order/mening-buyurtmalarim/',700);}else showToast(r.message||'Xatolik','error');
+}
+{% if is_admin %}
+async function moderatsiya(id,amal){
+  const r=await fetch(`/product/sharh/${id}/moderatsiya/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':_csrf()},body:JSON.stringify({amal})}).then(x=>x.json());
+  if(r.success){showToast(r.message,'success');setTimeout(()=>location.reload(),500);}else showToast(r.message||'Xatolik','error');
+}
+{% endif %}
+
+{% if can_review or mening_sharhim %}
+/* ── Yulduz tanlash ── */
+function setStar(v){document.getElementById('yulduzVal').value=v;document.querySelectorAll('#starInput i').forEach(el=>{el.classList.toggle('on', +el.dataset.v<=v);});}
+setStar(parseInt(document.getElementById('yulduzVal').value)||5);
+
+/* ── Kamera (faqat kamera, galereya yo'q) ── */
+let camStream=null, olinganRasmlar=[];
+async function kameraOch(){
+  if(olinganRasmlar.length>=3){showToast("Ko'pi bilan 3 ta rasm",'error');return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){showToast("Kamera mavjud emas (HTTPS/localhost kerak)",'error');return;}
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    document.getElementById('camVideo').srcObject=camStream;
+    document.getElementById('camModal').classList.add('open');
+  }catch(e){showToast('Kameraga ruxsat berilmadi','error');}
+}
+function kameraYop(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}document.getElementById('camModal').classList.remove('open');}
+function suratOl(){
+  const v=document.getElementById('camVideo');
+  const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
+  c.getContext('2d').drawImage(v,0,0);
+  c.toBlob(function(blob){
+    olinganRasmlar.push(blob);
+    const url=URL.createObjectURL(blob);
+    const d=document.createElement('div');d.style.cssText='position:relative;';
+    d.innerHTML=`<img src="${url}" class="rev-thumb"><button type="button" onclick="this.parentNode.remove();olinganRasmlar.splice(${olinganRasmlar.length-1},1)" style="position:absolute;top:-6px;right:-6px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;">×</button>`;
+    document.getElementById('rasmThumbs').appendChild(d);
+    kameraYop();
+    if(olinganRasmlar.length>=3)showToast('3 ta rasm limiti','info');
+  },'image/jpeg',0.85);
+}
+
+/* ── Sharh yuborish ── */
+document.getElementById('sharhForm').addEventListener('submit',async function(e){
+  e.preventDefault();
+  const fd=new FormData();
+  fd.append('mahsulot_id','{{ mahsulot.id }}');
+  fd.append('yulduz',document.getElementById('yulduzVal').value);
+  fd.append('izoh',this.izoh.value);
+  olinganRasmlar.forEach(b=>fd.append('rasmlar',b,'sharh.jpg'));
+  {% if mening_sharhim %}const url='/product/sharh/{{ mening_sharhim.id }}/tahrirlash/';{% else %}const url='{% url "sharh_qoldirish" %}';{% endif %}
+  try{
+    const r=await fetch(url,{method:'POST',headers:{'X-CSRFToken':_csrf()},body:fd}).then(x=>x.json());
+    if(r.success){showToast(r.message,'success');setTimeout(()=>location.reload(),700);}
+    else showToast(r.message||'Xatolik','error');
+  }catch(err){showToast('Xatolik yuz berdi','error');}
+});
+{% endif %}
+</script>
+{% endblock %}

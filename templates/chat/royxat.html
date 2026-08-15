@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}Chat{% endblock %}
+{% block page_title %}Chat{% endblock %}
+{% block page_sub %}Xabarlar{% endblock %}
+{% block content %}
+<div style="display:none;">{% csrf_token %}</div>
+<div class="card">
+  <div class="card-title"><i class="fas fa-comments"></i> Chatlar</div>
+
+  <!-- Username bo'yicha qidirish (#11) -->
+  <div style="position:relative;margin-bottom:14px;">
+    <i class="fas fa-search" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text3);"></i>
+    <input type="text" id="userSearch" class="form-control" style="padding-left:40px;"
+           placeholder="Username bo'yicha qidirish (kompaniya / foydalanuvchi)..." autocomplete="off" oninput="qidirUser()">
+  </div>
+  <div id="searchResults" style="display:none;flex-direction:column;gap:6px;margin-bottom:16px;"></div>
+
+  {% if xonalar %}
+  <div style="display:flex;flex-direction:column;gap:4px;">
+    {% for x in xonalar %}
+    <a href="{% url 'chat_xona' x.id %}"
+       style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;background:var(--bg3);text-decoration:none;transition:background 0.2s;"
+       onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='var(--bg3)'">
+      <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0;">
+        {{ x.id }}
+      </div>
+      <div style="flex:1;">
+        <div style="font-weight:600;font-size:14px;color:var(--text);">
+          {% for a in x.ishtirokchilar.all %}{% if a != request.user %}{{ a.first_name|default:a.username }}{% endif %}{% endfor %}
+        </div>
+        <div style="font-size:11px;color:var(--text3);">{{ x.yaratilgan|date:"d.m.Y H:i" }}</div>
+      </div>
+      <i class="fas fa-chevron-right" style="color:var(--text3);"></i>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:60px;color:var(--text3);">
+    <i class="fas fa-comments" style="font-size:48px;margin-bottom:16px;display:block;opacity:0.2;"></i>
+    <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Chatlar yo'q</div>
+    <div style="font-size:13px;">Boshqa foydalanuvchi bilan chat boshlash uchun ularning ID sini kiriting</div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+let _chatSearchTimer = null;
+function _csrf() {
+  const el = document.querySelector('input[name=csrfmiddlewaretoken]');
+  if (el) return el.value;
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? m[1] : '';
+}
+function qidirUser() {
+  const q = document.getElementById('userSearch').value.trim();
+  const box = document.getElementById('searchResults');
+  clearTimeout(_chatSearchTimer);
+  if (!q) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  _chatSearchTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`/chat/chat/qidiruv/?q=${encodeURIComponent(q)}`).then(r => r.json());
+      box.style.display = 'flex';
+      if (!res.natijalar || !res.natijalar.length) {
+        box.innerHTML = '<div style="padding:12px;color:var(--text3);font-size:13px;">Hech kim topilmadi</div>';
+        return;
+      }
+      box.innerHTML = res.natijalar.map(u => `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);">
+          <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">${(u.ism||'?').charAt(0).toUpperCase()}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:14px;">${u.kompaniya || u.ism}</div>
+            <div style="font-size:11px;color:var(--text3);">@${u.username}${u.rol ? ' · ' + u.rol : ''}</div>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="boshlaChat(${u.id})"><i class="fas fa-comment"></i> Chat</button>
+        </div>`).join('');
+    } catch (e) { showToast('Qidiruvda xatolik', 'error'); }
+  }, 250);
+}
+async function boshlaChat(uid) {
+  try {
+    const r = await fetch('{% url "yangi_chat" %}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _csrf() },
+      body: JSON.stringify({ foydalanuvchi_id: uid })
+    }).then(r => r.json());
+    if (r.xona_id) window.location = '/chat/chat/' + r.xona_id + '/';
+    else showToast(r.error || 'Xatolik', 'error');
+  } catch (e) { showToast('Xatolik yuz berdi', 'error'); }
+}
+</script>
+{% endblock %}

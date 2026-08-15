@@ -1,0 +1,11 @@
+{% if page_obj.paginator.num_pages > 1 %}
+<div style="display:flex;gap:6px;justify-content:center;align-items:center;margin-top:22px;flex-wrap:wrap;">
+  {% if page_obj.has_previous %}
+  <a href="?page={{ page_obj.previous_page_number }}{% if tanlangan_holat %}&holat={{ tanlangan_holat }}{% endif %}" class="btn btn-outline btn-sm"><i class="fas fa-chevron-left"></i></a>
+  {% endif %}
+  <span style="font-size:13px;color:var(--text2);padding:0 8px;">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}{% if tanlangan_holat %}&holat={{ tanlangan_holat }}{% endif %}" class="btn btn-outline btn-sm"><i class="fas fa-chevron-right"></i></a>
+  {% endif %}
+</div>
+{% endif %}

@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}Sotuvchilar reytingi{% endblock %}
+{% block page_title %}Sotuvchilar reytingi{% endblock %}
+{% block page_sub %}Do'kon sotuvchilari KPI · sog'lom raqobat{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-title"><i class="fas fa-trophy" style="color:#fbbf24;"></i> Sotuvchilar reytingi (oylik savdo bo'yicha)</div>
+  {% if qatorlar %}
+  <div class="table-wrap">
+    <table>
+      <tr>
+        <th>#</th><th>Sotuvchi</th>
+        <th>Bugun</th><th>Bu oy</th><th>Cheklar (oy)</th><th>Baho</th>
+      </tr>
+      {% for r in qatorlar %}
+      <tr>
+        <td style="font-weight:800;font-size:15px;">
+          {% if forloop.counter == 1 %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}{{ forloop.counter }}{% endif %}
+        </td>
+        <td style="font-weight:700;">{{ r.ism }}</td>
+        <td><span style="color:var(--accent);font-weight:700;">{{ r.kun_savdo|floatformat:0 }}</span> <span style="color:var(--text3);font-size:12px;">· {{ r.kun_cheklar }} chek</span></td>
+        <td><span style="color:var(--accent3);font-weight:800;font-size:15px;">{{ r.oy_savdo|floatformat:0 }}</span> <span style="color:var(--text3);font-size:12px;">so'm</span></td>
+        <td style="font-weight:600;">{{ r.oy_cheklar }} ta</td>
+        <td>
+          {% if r.reyting %}
+          <span style="color:#fbbf24;font-weight:700;"><i class="fas fa-star"></i> {{ r.reyting }}</span>
+          <span style="color:var(--text3);font-size:11px;">({{ r.reyting_n }})</span>
+          {% else %}<span style="color:var(--text3);">—</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:60px;color:var(--text3);">
+    <i class="fas fa-users" style="font-size:40px;opacity:0.25;margin-bottom:14px;display:block;"></i>
+    Bu oyda hali savdo yo'q
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

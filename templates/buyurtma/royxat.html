@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}Buyurtmalar{% endblock %}
+{% block page_title %}Buyurtmalar{% endblock %}
+{% block page_sub %}Barcha buyurtmalar{% endblock %}
+{% block topbar_actions %}
+{% if user.rol == 'dokon_egasi' %}
+<a href="/order/buyurtma/berish/" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Yangi Buyurtma</a>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <tr>
+        <th>#</th>
+        <th>{% if user.rol == 'zavod' %}Dokon{% else %}Zavod{% endif %}</th>
+        <th>Jami</th>
+        <th>Holat</th>
+        <th>Sana</th>
+        <th>Amal</th>
+      </tr>
+      {% for b in buyurtmalar %}
+      <tr>
+        <td style="color:var(--text3);">#{{ b.id }}</td>
+        <td style="font-weight:600;">
+          {% if user.rol == 'zavod' %}{{ b.dokon.dokon_nomi }}
+          {% else %}{{ b.zavod.zavod_nomi|default:"-" }}{% endif %}
+        </td>
+        <td style="color:var(--accent);font-weight:700;">{{ b.jami|floatformat:0 }} UZS</td>
+        <td>
+          {% if b.holat == 'yangi' %}<span class="status status-blue"><i class="fas fa-circle" style="font-size:7px;"></i> Yangi</span>
+          {% elif b.holat == 'qabul_qilindi' %}<span class="status status-warn"><i class="fas fa-check"></i> Qabul qilindi</span>
+          {% elif b.holat == 'tayyorlanmoqda' %}<span class="status status-purple"><i class="fas fa-cog"></i> Tayyorlanmoqda</span>
+          {% elif b.holat == 'yolda' %}<span class="status status-blue"><i class="fas fa-truck"></i> Yo'lda</span>
+          {% elif b.holat == 'yetkazildi' %}<span class="status status-green"><i class="fas fa-check-double"></i> Yetkazildi</span>
+          {% else %}<span class="status status-red"><i class="fas fa-times"></i> Bekor</span>{% endif %}
+        </td>
+        <td style="color:var(--text3);">{{ b.yaratilgan|date:"d.m.Y H:i" }}</td>
+        <td>
+          {% if user.rol == 'zavod' %}
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            {% if b.holat == 'yangi' %}
+              <button onclick="bAmal({{ b.id }},'qabul_qilindi')" class="btn btn-success btn-sm"><i class="fas fa-check"></i> Qabul</button>
+              <button onclick="bAmal({{ b.id }},'bekor')" class="btn btn-outline btn-sm" style="color:var(--danger);"><i class="fas fa-times"></i> Rad</button>
+            {% elif b.holat == 'qabul_qilindi' %}
+              <button onclick="bAmal({{ b.id }},'tayyorlanmoqda')" class="btn btn-primary btn-sm"><i class="fas fa-box"></i> Tayyorlash</button>
+            {% elif b.holat == 'tayyorlanmoqda' %}
+              <a href="/zavod/jonatish/?buyurtma={{ b.id }}" class="btn btn-primary btn-sm"><i class="fas fa-paper-plane"></i> Jo'natish</a>
+              <button onclick="bAmal({{ b.id }},'yolda')" class="btn btn-outline btn-sm"><i class="fas fa-truck"></i> Yo'lga</button>
+            {% elif b.holat == 'yolda' %}
+              <button onclick="bAmal({{ b.id }},'yetkazildi')" class="btn btn-success btn-sm"><i class="fas fa-check-double"></i> Yetkazildi</button>
+            {% else %}
+              <span style="font-size:12px;color:var(--text3);"><i class="fas fa-flag-checkered"></i> Yakunlandi</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="6" style="text-align:center;padding:60px;color:var(--text3);">
+          <i class="fas fa-shopping-cart" style="font-size:40px;margin-bottom:14px;display:block;opacity:0.3;"></i>
+          Buyurtma yo'q
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+<script>
+async function bAmal(id, holat) {
+  const res = await apiPost(`/order/buyurtma/${id}/holat/`, {holat});
+  if (res.status === 'ok') {
+    showToast(holat === 'bekor' ? 'Buyurtma rad qilindi' : 'Holat yangilandi!', 'success');
+    setTimeout(() => location.reload(), 600);
+  } else showToast(res.error || 'Xatolik!', 'error');
+}
+</script>
+{% endblock %}

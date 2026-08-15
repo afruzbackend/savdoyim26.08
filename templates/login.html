@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% block title %}Kirish - DokonTizim{% endblock %}
+{% block auth_content %}
+<style>
+.auth-bg {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background:
+    radial-gradient(ellipse 800px 600px at 20% 30%, rgba(91,138,245,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 600px 800px at 80% 70%, rgba(124,58,237,0.07) 0%, transparent 60%),
+    var(--bg);
+}
+
+[data-theme="light"] .auth-bg {
+  background:
+    radial-gradient(ellipse 800px 600px at 20% 30%, rgba(59,110,240,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 600px 800px at 80% 70%, rgba(109,40,217,0.06) 0%, transparent 60%),
+    var(--bg);
+}
+
+/* Floating orbs */
+.auth-bg::before, .auth-bg::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: float 8s ease-in-out infinite;
+}
+.auth-bg::before {
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(91,138,245,0.06) 0%, transparent 70%);
+  top: 10%; left: 5%;
+}
+.auth-bg::after {
+  width: 250px; height: 250px;
+  background: radial-gradient(circle, rgba(16,217,160,0.06) 0%, transparent 70%);
+  bottom: 10%; right: 5%;
+  animation-delay: -4s;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-20px); }
+}
+
+.auth-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 42px;
+  width: 100%; max-width: 420px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+  animation: cardIn 0.5s cubic-bezier(.4,0,.2,1);
+  position: relative;
+  transition: background 0.35s, border-color 0.35s;
+}
+[data-theme="light"] .auth-card {
+  box-shadow: 0 12px 40px rgba(0,0,0,0.10);
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Theme toggle in auth pages */
+.auth-theme-btn {
+  position: absolute;
+  top: 18px; right: 18px;
+  width: 36px; height: 36px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  transition: background 0.2s, transform 0.2s;
+}
+.auth-theme-btn:hover { background: var(--border); transform: scale(1.1); }
+
+.auth-logo { text-align: center; margin-bottom: 28px; }
+.brand-logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.brand-logo img {
+  height: 76px;
+  width: auto;
+  max-width: 200px;
+  object-fit: contain;
+  border-radius: 16px;
+}
+.brand-logo-dark { display: none; }
+[data-theme="dark"] .brand-logo-light { display: none; }
+[data-theme="dark"] .brand-logo-dark  { display: inline-block; }
+@media (max-width: 480px) {
+  .brand-logo img { height: 58px; }
+}
+.auth-logo-icon {
+  width: 64px; height: 64px;
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  margin: 0 auto 14px;
+  box-shadow: 0 8px 28px rgba(91,138,245,0.25);
+  animation: pulse 3s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 8px 28px rgba(91,138,245,0.25); }
+  50%       { box-shadow: 0 8px 36px rgba(91,138,245,0.45); }
+}
+.auth-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.auth-sub   { font-size: 13px; color: var(--text2); }
+
+.auth-tabs {
+  display: flex;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 3px;
+  margin-bottom: 26px;
+}
+.auth-tab {
+  flex: 1; text-align: center;
+  padding: 9px;
+  border-radius: 9px;
+  font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  transition: all 0.22s;
+  color: var(--text2);
+  text-decoration: none;
+}
+.auth-tab.active {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+[data-theme="light"] .auth-tab.active {
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+
+.inp-wrap   { position: relative; }
+.inp-icon   { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 14px; }
+.inp-pad    { padding-left: 40px !important; }
+
+.btn-full   { width: 100%; justify-content: center; padding: 13px; font-size: 15px; border-radius: 11px; }
+
+.forgot {
+  display: block; text-align: right;
+  font-size: 13px; color: var(--accent);
+  text-decoration: none; margin-top: -8px; margin-bottom: 20px;
+  transition: opacity 0.2s;
+}
+.forgot:hover { opacity: 0.75; text-decoration: underline; }
+
+.divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 18px 0; color: var(--text3); font-size: 12px;
+}
+.divider::before, .divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+</style>
+
+<div class="auth-bg">
+<div class="auth-card">
+  <!-- Theme toggle -->
+  <button class="auth-theme-btn" onclick="authToggleTheme()" title="Mavzuni almashtirish">
+    <span id="authThemeIcon">☀️</span>
+  </button>
+
+ {% load static %}
+
+<div class="auth-logo">
+    <div class="brand-logo" style="margin-bottom:15px;">
+        <img src="{% static 'logol.png' %}" alt="Savdoyim" class="brand-logo-light">
+        <img src="{% static 'logod.png' %}" alt="Savdoyim" class="brand-logo-dark">
+    </div>
+
+    <div class="auth-title">Savdoyim</div>
+    <div class="auth-sub">Biznes boshqaruv tizimi</div>
+</div>
+
+<div class="auth-tabs">
+    <a href="{% url 'login' %}" class="auth-tab active">Kirish</a>
+    <a href="{% url 'register' %}" class="auth-tab">Ro'yxatdan o'tish</a>
+</div>
+
+  {% for m in messages %}
+  <div class="alert alert-{% if m.tags == 'error' %}error{% elif m.tags == 'success' %}success{% else %}info{% endif %}">
+    <i class="fas fa-info-circle"></i> {{ m }}
+  </div>
+  {% endfor %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label class="form-label">Foydalanuvchi nomi</label>
+      <div class="inp-wrap">
+        <i class="fas fa-user inp-icon"></i>
+        <input type="text" name="username" class="form-control inp-pad" placeholder="username" required autofocus>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Parol</label>
+      <div class="inp-wrap">
+        <i class="fas fa-lock inp-icon"></i>
+        <input type="password" name="password" id="passInp" class="form-control inp-pad" placeholder="••••••••" required>
+        <i class="fas fa-eye" id="eyeBtn" onclick="togglePass()"
+           style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text3);cursor:pointer;font-size:14px;"></i>
+      </div>
+    </div>
+    <a href="{% url 'forgot_password' %}" class="forgot">Parolni unutdingizmi?</a>
+    <button type="submit" class="btn btn-primary btn-full">
+      <i class="fas fa-sign-in-alt"></i> Kirish
+    </button>
+  </form>
+
+  <div class="divider">yoki</div>
+  <a href="{% url 'register' %}" class="btn btn-outline btn-full" style="justify-content:center;">
+    <i class="fas fa-user-plus"></i> Yangi hisob ochish
+  </a>
+
+  <a href="{% url 'mehmon_dashboard' %}" style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:14px;color:var(--text3);font-size:13px;font-weight:600;text-decoration:none;transition:color .2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">
+    <i class="fas fa-eye"></i> Ro'yxatsiz ko'rish (mehmon)
+  </a>
+
+  <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:12px;color:var(--text3);line-height:1.7;">
+    Savdoyim — kichik biznes uchun yagona raqamli ekotizim<br>
+    Asoschi &amp; CEO: <b style="color:var(--text2);">Abduraxmonov Afruz</b> · Piskent, Toshkent v.<br>
+    <a href="{% url 'about' %}" style="color:var(--accent);text-decoration:none;font-weight:600;">Biz haqimizda &rarr;</a>
+  </div>
+</div>
+</div>
+
+<script>
+function togglePass() {
+  const i = document.getElementById('passInp');
+  const e = document.getElementById('eyeBtn');
+  if (i.type === 'password') { i.type = 'text';     e.className = 'fas fa-eye-slash'; }
+  else                       { i.type = 'password'; e.className = 'fas fa-eye';      }
+  e.style.cssText = 'position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text3);cursor:pointer;font-size:14px;';
+}
+
+/* Self-contained theme toggle for auth pages (base.html defines its toggle
+   AFTER this script, so we use our own to avoid ordering issues). */
+function syncAuthIcon() {
+  const el = document.getElementById('authThemeIcon');
+  // Ikonka almashtiriladigan rejimni bildiradi: qora rejimda quyosh, oq fonda oy
+  if (el) el.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+}
+function authToggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('dt-theme', next);
+  syncAuthIcon();
+}
+syncAuthIcon();
+</script>
+{% endblock %}

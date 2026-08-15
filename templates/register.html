@@ -1,0 +1,882 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Ro'yxatdan o'tish{% endblock %}
+{% block auth_content %}
+<style>
+.auth-bg {
+  position: relative;
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(ellipse 900px 640px at 18% 22%, rgba(91,138,245,0.10) 0%, transparent 58%),
+    radial-gradient(ellipse 720px 560px at 88% 84%, rgba(124,58,237,0.09) 0%, transparent 60%),
+    radial-gradient(ellipse 520px 420px at 60% 50%, rgba(16,217,160,0.05) 0%, transparent 62%),
+    var(--bg);
+  overflow: hidden;
+}
+.auth-bg::before {
+  content: '';
+  position: absolute; inset: -30%;
+  background:
+    radial-gradient(circle 380px at 25% 30%, rgba(91,138,245,0.10), transparent 70%),
+    radial-gradient(circle 320px at 78% 72%, rgba(124,58,237,0.08), transparent 70%);
+  filter: blur(10px);
+  animation: authFloat 18s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+@keyframes authFloat {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to   { transform: translate3d(2%, 1.5%, 0) scale(1.06); }
+}
+[data-theme="light"] .auth-bg {
+  background:
+    radial-gradient(ellipse 900px 640px at 18% 22%, rgba(59,110,240,0.08) 0%, transparent 58%),
+    radial-gradient(ellipse 720px 560px at 88% 84%, rgba(109,40,217,0.06) 0%, transparent 60%),
+    var(--bg);
+}
+.auth-card {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 40px 40px 34px;
+  width: 100%; max-width: 540px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 30px 70px -20px rgba(0,0,0,0.55);
+  animation: cardIn 0.55s cubic-bezier(.16,.84,.34,1);
+  transition: background 0.35s, border-color 0.35s;
+}
+.auth-card::before {
+  content: '';
+  position: absolute; left: 24px; right: 24px; top: 0; height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+  opacity: 0.9;
+}
+[data-theme="light"] .auth-card {
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.9) inset,
+    0 20px 48px -18px rgba(31,50,90,0.22);
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(22px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.auth-theme-btn {
+  position: absolute; top: 18px; right: 18px;
+  width: 38px; height: 38px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; transition: background 0.2s, transform 0.25s, box-shadow 0.2s;
+}
+.auth-theme-btn:hover { background: var(--border); transform: rotate(-12deg) scale(1.08); box-shadow: 0 4px 14px var(--glow-blue); }
+.auth-tabs {
+  display: flex; background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 4px; margin-bottom: 26px;
+}
+.auth-tab {
+  flex: 1; text-align: center; padding: 10px; border-radius: 9px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: all 0.22s; color: var(--text2); text-decoration: none;
+}
+.auth-tab:hover { color: var(--text); }
+.auth-tab.active {
+  background: var(--card); color: var(--text);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+}
+.brand-logo { position: relative; display: flex; justify-content: center; align-items: center; }
+.brand-logo::after {
+  content: '';
+  position: absolute; width: 150px; height: 150px; border-radius: 50%;
+  background: radial-gradient(circle, var(--glow-blue), transparent 70%);
+  z-index: 0; pointer-events: none;
+}
+.brand-logo img {
+  position: relative; z-index: 1;
+  height: 74px; width: auto; max-width: 200px; object-fit: contain; border-radius: 16px;
+}
+.brand-logo-dark { display: none; }
+[data-theme="dark"] .brand-logo-light { display: none; }
+[data-theme="dark"] .brand-logo-dark  { display: inline-block; }
+.auth-title {
+  font-size: 23px; font-weight: 800; letter-spacing: -0.4px;
+  background: linear-gradient(120deg, var(--text), var(--accent));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+@media (max-width: 480px) {
+  .brand-logo img { height: 56px; }
+  .brand-logo::after { width: 120px; height: 120px; }
+}
+.rol-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.rol-card {
+  position: relative;
+  background: var(--bg3); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 15px 10px 13px; text-align: center;
+  cursor: pointer; transition: transform 0.2s cubic-bezier(.16,.84,.34,1), border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.rol-card:hover { border-color: var(--border2); transform: translateY(-3px); box-shadow: 0 10px 24px -8px var(--glow-blue); }
+.rol-card.selected {
+  border-color: var(--accent);
+  background: linear-gradient(160deg, var(--glow-blue), transparent 80%);
+  box-shadow: 0 0 0 3px var(--glow-blue), 0 10px 26px -10px var(--glow-blue);
+}
+.rol-card input { display: none; }
+.rol-icon  {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 46px; height: 46px; margin-bottom: 8px;
+  font-size: 23px; line-height: 1;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 13px;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.rol-card:hover .rol-icon { transform: scale(1.06); }
+.rol-card.selected .rol-icon { border-color: var(--accent); box-shadow: 0 4px 14px var(--glow-blue); transform: scale(1.05); }
+.rol-name  { font-size: 13px; font-weight: 700; }
+.rol-desc  { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
+.extra     { display: none; }
+.extra.show { display: block; animation: fadeSlide 0.3s ease; }
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.extra-box { border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.btn-full {
+  width: 100%; justify-content: center; padding: 14px; margin-top: 4px;
+  font-size: 15px; font-weight: 700; letter-spacing: 0.2px; border-radius: 12px;
+}
+.btn-full:not(:disabled):hover { box-shadow: 0 10px 28px -6px var(--glow-blue); }
+.btn-full:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+
+/* ── 2-bosqichli sehrgar (Instagram uslubi) ── */
+.wiz-progress { display: flex; align-items: center; gap: 8px; margin-bottom: 22px; }
+.wiz-dot {
+  flex: 1; height: 5px; border-radius: 4px; background: var(--border);
+  transition: background 0.4s;
+}
+.wiz-dot.active { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+.wiz-label { font-size: 12px; color: var(--text3); font-weight: 600; white-space: nowrap; }
+.wiz-step { animation: fadeSlide 0.3s ease; }
+.wiz-back {
+  background: none; border: none; color: var(--text2); cursor: pointer;
+  font-size: 13px; font-weight: 600; padding: 4px 0; margin-bottom: 10px;
+  display: inline-flex; align-items: center; gap: 6px; transition: color 0.2s;
+}
+.wiz-back:hover { color: var(--accent); }
+
+/* ── Mehmon (guest) tugma + ajratgich ── */
+.guest-sep {
+  display: flex; align-items: center; gap: 12px;
+  margin: 18px 0 14px; color: var(--text3); font-size: 12px;
+}
+.guest-sep::before, .guest-sep::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.guest-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 13px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--bg3);
+  color: var(--text2); font-size: 14px; font-weight: 600;
+  text-decoration: none; cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.2s;
+}
+.guest-btn:hover {
+  border-color: var(--accent); color: var(--accent);
+  background: rgba(91,138,245,0.06); transform: translateY(-2px);
+}
+.guest-btn i { font-size: 13px; }
+
+/* ── Input holat belgisi (username live tekshiruv) ── */
+.field-hint {
+  font-size: 11.5px; margin-top: 5px; display: flex; align-items: center; gap: 5px;
+  min-height: 15px; transition: color 0.2s;
+}
+.field-hint.ok  { color: #10d9a0; }
+.field-hint.err { color: #ef4444; }
+.field-hint.load { color: var(--text3); }
+.input-wrap { position: relative; }
+.input-wrap .input-status {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 14px; opacity: 0; transition: opacity 0.2s;
+}
+.input-wrap .input-status.show { opacity: 1; }
+
+/* Ism xatosi popup (qalqib chiquvchi) */
+.ism-pop {
+  position: absolute; z-index: 20; left: 0; top: calc(100% + 6px);
+  background: #ef4444; color: #fff; font-size: 11.5px; font-weight: 600;
+  padding: 6px 11px; border-radius: 8px; white-space: nowrap;
+  box-shadow: 0 8px 20px -6px rgba(239,68,68,0.5);
+  opacity: 0; transform: translateY(-4px); pointer-events: none;
+  transition: opacity 0.18s, transform 0.18s;
+}
+.ism-pop::before {
+  content: ''; position: absolute; left: 16px; top: -5px;
+  border: 5px solid transparent; border-bottom-color: #ef4444; border-top: 0;
+}
+.ism-pop.show { opacity: 1; transform: translateY(0); }
+
+.geo-btns { display: flex; gap: 8px; margin-bottom: 10px; }
+.geo-btn {
+  flex: 1; padding: 9px 10px; border-radius: 9px; border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text2); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; display: flex; align-items: center;
+  justify-content: center; gap: 6px;
+}
+.geo-btn:hover { border-color: var(--accent); color: var(--accent); }
+.geo-btn.active { border-color: var(--accent); background: rgba(91,138,245,0.1); color: var(--accent); }
+#geoStatus { font-size: 11px; padding: 6px 10px; border-radius: 7px; margin-bottom: 8px; display: none; }
+.geoStatus-ok   { background: rgba(16,217,160,0.1); color: #10d9a0; border: 1px solid rgba(16,217,160,0.2); }
+.geoStatus-err  { background: rgba(239,68,68,0.1);  color: #ef4444;  border: 1px solid rgba(239,68,68,0.2); }
+.geoStatus-load { background: rgba(91,138,245,0.1); color: var(--accent); border: 1px solid rgba(91,138,245,0.2); }
+#mapContainer { display: none; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 10px; height: 200px; }
+#leafletMap { width: 100%; height: 100%; }
+
+@media (max-width: 480px) {
+  .rol-grid { grid-template-columns: 1fr 1fr; }
+  .row2     { grid-template-columns: 1fr; }
+  .auth-card { padding: 28px 20px; }
+}
+</style>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<div class="auth-bg">
+<div class="auth-card">
+  <button class="auth-theme-btn" onclick="authToggleTheme()" title="Mavzuni almashtirish">
+    <span id="authThemeIcon">☀️</span>
+  </button>
+
+<div style="text-align:center;margin-bottom:24px;">
+  <div class="brand-logo" style="margin-bottom:12px;">
+    <img src="{% static 'logol.png' %}" alt="DokonTizim" class="brand-logo-light">
+    <img src="{% static 'logod.png' %}" alt="DokonTizim" class="brand-logo-dark">
+  </div>
+  <div class="auth-title">Yangi Hisob</div>
+  <div style="font-size:13px;color:var(--text2);margin-top:2px;">Rolingizni tanlang va boshlang</div>
+</div>
+
+  <div class="auth-tabs">
+    <a href="{% url 'login' %}"    class="auth-tab">Kirish</a>
+    <a href="{% url 'register' %}" class="auth-tab active">Ro'yxatdan o'tish</a>
+  </div>
+
+  <!-- Progress -->
+  <div class="wiz-progress">
+    <span class="wiz-dot active" id="wizDot1"></span>
+    <span class="wiz-dot" id="wizDot2"></span>
+    <span class="wiz-label" id="wizLabel">1-qadam · Hisob</span>
+  </div>
+
+  {% for m in messages %}
+  <div class="alert alert-{% if m.tags == 'error' %}error{% elif m.tags == 'success' %}success{% else %}info{% endif %}">
+    <i class="fas fa-info-circle"></i> {{ m }}
+  </div>
+  {% endfor %}
+
+  <form method="post" enctype="multipart/form-data" id="regForm">
+    {% csrf_token %}
+    <input type="hidden" name="latitude"  id="hiddenLat">
+    <input type="hidden" name="longitude" id="hiddenLng">
+
+    <!-- ════════ 1-QADAM: ROL + ISM + USERNAME + PAROL ════════ -->
+    <div id="step1" class="wiz-step">
+      <div style="margin-bottom:16px;">
+        <div class="form-label" style="margin-bottom:8px;">
+          <i class="fas fa-user-tag" style="color:var(--accent);margin-right:5px;"></i>Rolingizni tanlang
+        </div>
+        <div class="rol-grid">
+          <label class="rol-card" onclick="selectRol('dokon_egasi',this)">
+            <input type="radio" name="rol" value="dokon_egasi">
+            <div class="rol-icon">🏪</div>
+            <div class="rol-name">Dokon Egasi</div>
+            <div class="rol-desc">Do'kon ochish</div>
+          </label>
+          <label class="rol-card" onclick="selectRol('sotuvchi',this)">
+            <input type="radio" name="rol" value="sotuvchi">
+            <div class="rol-icon">👨‍💼</div>
+            <div class="rol-name">Sotuvchi</div>
+            <div class="rol-desc">Kassa &amp; savdo</div>
+          </label>
+          <label class="rol-card" onclick="selectRol('zavod',this)">
+            <input type="radio" name="rol" value="zavod">
+            <div class="rol-icon">🏭</div>
+            <div class="rol-name">Zavod</div>
+            <div class="rol-desc">Ishlab chiqaruvchi</div>
+          </label>
+          <label class="rol-card" onclick="selectRol('mijoz',this)">
+            <input type="radio" name="rol" value="mijoz">
+            <div class="rol-icon">🛍️</div>
+            <div class="rol-name">Mijoz</div>
+            <div class="rol-desc">Mahsulot qidirish</div>
+          </label>
+          <label class="rol-card" onclick="selectRol('yetkazib_beruvchi',this)" style="grid-column:span 2;">
+            <input type="radio" name="rol" value="yetkazib_beruvchi">
+            <div class="rol-icon">🚛</div>
+            <div class="rol-name">Yetkazib Beruvchi</div>
+            <div class="rol-desc">Mahsulot yetkazish</div>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group" style="position:relative;">
+        <label class="form-label">Ism *</label>
+        <input type="text" name="ism" id="ismInput" class="form-control" placeholder="Ismingiz"
+               autocomplete="given-name" required>
+        <div class="ism-pop" id="ismPop">Faqat harflar yoziladi</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Username *</label>
+        <div class="input-wrap">
+          <input type="text" name="username" id="usernameInput" class="form-control"
+                 placeholder="username" autocomplete="username" autocapitalize="none"
+                 spellcheck="false" maxlength="30" required>
+          <span class="input-status" id="usernameStatus"></span>
+        </div>
+        <div class="field-hint" id="usernameHint">Kichik harf, raqam, nuqta va _ (Instagram uslubi)</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Parol * <span style="color:var(--text3);font-weight:400;">(kamida 6 ta belgi)</span></label>
+        <input type="password" name="password" id="passwordInput" class="form-control"
+               placeholder="••••••••" required minlength="6" autocomplete="new-password">
+      </div>
+
+      <button type="button" class="btn btn-primary btn-full" id="toStep2Btn" onclick="goStep2()">
+        Keyingi <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <!-- ════════ 2-QADAM: TELEFON + ROLGA MOS MA'LUMOT + EMAIL TASDIQLASH ════════ -->
+    <div id="step2" class="wiz-step" style="display:none;">
+      <button type="button" class="wiz-back" onclick="goStep1()">
+        <i class="fas fa-arrow-left"></i> Orqaga
+      </button>
+
+      <div class="form-group">
+        <label class="form-label">Telefon raqami *</label>
+        <input type="tel" name="telefon" id="telefonInput" class="form-control"
+               placeholder="+998 90 123 45 67" inputmode="numeric"
+               autocomplete="tel" required>
+        <div class="field-hint">Faqat raqamlar</div>
+      </div>
+
+      <!-- DOKON EGASI -->
+      <div id="extra_dokon_egasi" class="extra">
+        <div class="extra-box" style="background:rgba(91,138,245,0.06);border:1px solid rgba(91,138,245,0.2);">
+          <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;"><i class="fas fa-store"></i> Dokon ma'lumotlari</div>
+          <div class="form-group"><label class="form-label">Dokon nomi</label><input type="text" name="dokon_nomi" class="form-control" placeholder="Dokon nomi"></div>
+          <div class="row2">
+            <div class="form-group"><label class="form-label">Soliq raqami (INN)</label><input type="text" name="soliq_raqami" class="form-control num-only" placeholder="123456789" inputmode="numeric"></div>
+            <div class="form-group"><label class="form-label">JSHSHR</label><input type="text" name="jshshr" class="form-control num-only" placeholder="12345678901234" inputmode="numeric"></div>
+          </div>
+          <div class="row2">
+            <div class="form-group"><label class="form-label">Pasport seriyasi</label><input type="text" name="passport" class="form-control" placeholder="AA1234567" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label class="form-label">Dokon manzili</label><input type="text" name="manzil" class="form-control" placeholder="Toshkent, Yunusobod..." id="manzilInput"></div>
+          </div>
+          <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;">
+            <i class="fas fa-map-marker-alt"></i> Dokon joylashuvi
+          </div>
+          <div class="geo-btns">
+            <button type="button" class="geo-btn" id="btnMyLocation" onclick="getMyLocation()">
+              <i class="fas fa-crosshairs"></i> Hozirgi joylashuvim
+            </button>
+            <button type="button" class="geo-btn" id="btnPickMap" onclick="openMap()">
+              <i class="fas fa-map"></i> Xaritadan tanlash
+            </button>
+          </div>
+          <div id="geoStatus"></div>
+          <div id="mapContainer"><div id="leafletMap"></div></div>
+          <div id="geoCoords" style="font-size:10px;color:var(--text3);display:none;">
+            📍 <span id="latDisplay"></span>, <span id="lngDisplay"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SOTUVCHI -->
+      <div id="extra_sotuvchi" class="extra">
+        <div class="extra-box" style="background:rgba(16,217,160,0.06);border:1px solid rgba(16,217,160,0.2);">
+          <div style="font-size:12px;font-weight:700;color:var(--accent3);margin-bottom:10px;"><i class="fas fa-store"></i> Qaysi do'konda ishlaysiz?</div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">Do'kon egasi username *</label>
+            <div class="input-wrap">
+              <input type="text" name="dokon_username" id="dokonUsernameInput" class="form-control" placeholder="masalan: dokonegasi01" autocapitalize="none" spellcheck="false">
+              <span class="input-status" id="dokonStatus"></span>
+            </div>
+            <div class="field-hint" id="dokonHint">Do'kon egasining username'ini kiriting</div>
+          </div>
+          <div class="alert alert-info" style="font-size:13px;"><i class="fas fa-info-circle"></i> Do'kon egasining <b>username</b>'ini kiriting. So'rovingizni u tasdiqlaydi.</div>
+        </div>
+      </div>
+
+      <!-- YETKAZIB BERUVCHI -->
+      <div id="extra_yetkazib_beruvchi" class="extra">
+        <div class="extra-box" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);">
+          <div style="font-size:12px;font-weight:700;color:var(--warn);margin-bottom:10px;"><i class="fas fa-truck"></i> Transport ma'lumotlari</div>
+          <div class="form-group">
+            <label class="form-label">Transport turi</label>
+            <select name="mashina_turi" class="form-control">
+              <option value="">— Tanlang —</option>
+              <optgroup label="🚐 Yengil yuk">
+                <option value="Damas">Damas</option>
+                <option value="Labo">Labo</option>
+                <option value="Ford Transit">Ford Transit</option>
+                <option value="Mercedes-Benz Sprinter">Mercedes-Benz Sprinter</option>
+              </optgroup>
+              <optgroup label="🚛 O'rta yuk">
+                <option value="Isuzu NQR">Isuzu NQR</option>
+                <option value="Isuzu NPR">Isuzu NPR</option>
+                <option value="Hyundai Mighty">Hyundai Mighty</option>
+                <option value="Hyundai HD78">Hyundai HD78</option>
+                <option value="JAC N75">JAC N75</option>
+              </optgroup>
+              <optgroup label="🚚 Og'ir yuk">
+                <option value="KamAZ 4308">KamAZ 4308</option>
+                <option value="MAN TGL">MAN TGL</option>
+                <option value="Mercedes-Benz Atego">Mercedes-Benz Atego</option>
+                <option value="Volvo FL">Volvo FL</option>
+                <option value="Scania P-Series">Scania P-Series</option>
+              </optgroup>
+              <optgroup label="❄️ Muzlatkichli">
+                <option value="Isuzu NQR Refrigerated">Isuzu NQR Muzlatkichli</option>
+                <option value="Hyundai Mighty Refrigerated">Hyundai Mighty Muzlatkichli</option>
+                <option value="Ford Transit Refrigerated">Ford Transit Muzlatkichli</option>
+                <option value="Mercedes-Benz Sprinter Refrigerated">Sprinter Muzlatkichli</option>
+                <option value="Mercedes-Benz Atego Refrigerated">Atego Muzlatkichli</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Davlat raqami *</label>
+            <input type="text" name="mashina_raqami" id="mashinaRaqami" class="form-control"
+                   placeholder="01 A 123 AA" maxlength="12" style="text-transform:uppercase;letter-spacing:1px;">
+            <div style="font-size:11px;color:var(--text3);margin-top:4px;">Masalan: 01 A 123 AA</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ZAVOD -->
+      <div id="extra_zavod" class="extra">
+        <div class="extra-box" style="background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.2);">
+          <div style="font-size:12px;font-weight:700;color:var(--accent2);margin-bottom:10px;"><i class="fas fa-industry"></i> Zavod ma'lumotlari</div>
+          <div class="form-group"><label class="form-label">Zavod nomi</label><input type="text" name="zavod_nomi" class="form-control" placeholder="Zavod nomi"></div>
+          <div class="row2">
+            <div class="form-group"><label class="form-label">Soliq raqami</label><input type="text" name="soliq_raqami" class="form-control num-only" placeholder="123456789" inputmode="numeric"></div>
+            <div class="form-group"><label class="form-label">MCHJ nomi</label><input type="text" name="mchj_nomi" class="form-control" placeholder='"Bahor" MCHJ'></div>
+          </div>
+          <div class="form-group"><label class="form-label">Mahsulot turi</label><input type="text" name="mahsulot_turi" class="form-control" placeholder="Oziq-ovqat, kiyim..."></div>
+          <div class="form-group"><label class="form-label">Hujjatlar (PDF/rasm)</label><input type="file" name="hujjat" class="form-control" accept=".pdf,.jpg,.png"></div>
+        </div>
+      </div>
+
+      <!-- EMAIL TASDIQLASH -->
+      <div class="extra-box" style="background:rgba(91,138,245,0.06);border:1px solid rgba(91,138,245,0.2);margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;"><i class="fas fa-envelope"></i> Email tasdiqlash</div>
+        <div class="form-group">
+          <label class="form-label">Email *</label>
+          <input type="email" name="email" id="regEmail" class="form-control" placeholder="email@example.com" required>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <button type="button" id="sendCodeBtn" class="btn btn-outline" style="width:100%;justify-content:center;" onclick="sendRegCode()">
+            <i class="fas fa-paper-plane"></i> Tasdiqlash kodini yuborish
+          </button>
+          <div id="codeWrap" style="display:none;margin-top:12px;">
+            <label class="form-label">Email tasdiqlash kodi *</label>
+            <input type="text" name="tasdiq_kodi" id="tasdiqKodi" class="form-control" placeholder="6 xonali kod" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+            <div id="codeHint" style="font-size:12px;color:var(--text3);margin-top:6px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full" id="regBtn">
+        <i class="fas fa-user-plus"></i> Ro'yxatdan o'tish
+      </button>
+    </div>
+  </form>
+
+  <!-- Mehmon (guest) rejimi — ro'yxatdan o'tmasdan ko'rish -->
+  <div class="guest-sep"><span>yoki</span></div>
+  <a href="{% url 'mehmon_dashboard' %}" class="guest-btn">
+    <i class="fas fa-eye"></i> Ro'yxatsiz ko'rish (mehmon)
+  </a>
+
+  <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:12px;color:var(--text3);line-height:1.7;">
+    Savdoyim — kichik biznes uchun yagona raqamli ekotizim<br>
+    Asoschi &amp; CEO: <b style="color:var(--text2);">Abduraxmonov Afruz</b> · Piskent, Toshkent v.<br>
+    <a href="{% url 'about' %}" style="color:var(--accent);text-decoration:none;font-weight:600;">Biz haqimizda &rarr;</a>
+  </div>
+</div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let map = null, marker = null;
+let usernameOk = false;          // live tekshiruv holati
+let usernameTimer = null;
+
+/* ── Rol tanlash — mos qadam-2 bo'limini ko'rsatadi ── */
+function selectRol(rol, el) {
+  document.querySelectorAll('.rol-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  el.querySelector('input').checked = true;
+  document.querySelectorAll('.extra').forEach(e => e.classList.remove('show'));
+  const ex = document.getElementById('extra_' + rol);
+  if (ex) ex.classList.add('show');
+}
+
+/* ════════ ISM — faqat harflar (qalqib chiquvchi ogohlantirish) ════════ */
+const ISM_RUXSAT = /[A-Za-zÀ-ÿА-Яа-яЎўҚқҒғҲҳʼ'’\- ]/;
+let ismPopTimer = null;
+function showIsmPop() {
+  const pop = document.getElementById('ismPop');
+  pop.classList.add('show');
+  clearTimeout(ismPopTimer);
+  ismPopTimer = setTimeout(() => pop.classList.remove('show'), 1600);
+}
+document.getElementById('ismInput').addEventListener('input', function() {
+  let toza = '', ozgardi = false;
+  for (const ch of this.value) {
+    if (ISM_RUXSAT.test(ch)) toza += ch; else ozgardi = true;
+  }
+  if (ozgardi) { this.value = toza; showIsmPop(); }
+});
+document.getElementById('ismInput').addEventListener('keypress', function(e) {
+  if (e.key.length === 1 && !ISM_RUXSAT.test(e.key)) { e.preventDefault(); showIsmPop(); }
+});
+
+/* ════════ TELEFON — faqat raqam (+ boshida ruxsat) ════════ */
+function faqatRaqam(el, plusRuxsat) {
+  el.addEventListener('input', function() {
+    let v = this.value;
+    if (plusRuxsat) {
+      const plus = v.trim().startsWith('+') ? '+' : '';
+      v = plus + v.replace(/[^0-9]/g, '');
+    } else {
+      v = v.replace(/[^0-9]/g, '');
+    }
+    this.value = v;
+  });
+}
+faqatRaqam(document.getElementById('telefonInput'), true);
+document.querySelectorAll('.num-only').forEach(el => faqatRaqam(el, false));
+
+/* ════════ USERNAME — Instagram uslubi + live tekshiruv ════════ */
+const usernameInp = document.getElementById('usernameInput');
+usernameInp.addEventListener('input', function() {
+  // faqat kichik harf, raqam, nuqta, pastki chiziq
+  let v = this.value.toLowerCase().replace(/[^a-z0-9._]/g, '');
+  this.value = v;
+  usernameOk = false;
+  const st = document.getElementById('usernameStatus');
+  st.className = 'input-status';
+  setUsernameHint('Kichik harf, raqam, nuqta va _ (Instagram uslubi)', '');
+  clearTimeout(usernameTimer);
+  if (v.length >= 3) {
+    setUsernameHint('Tekshirilmoqda...', 'load');
+    usernameTimer = setTimeout(() => checkUsername(v), 450);
+  }
+});
+function setUsernameHint(text, cls) {
+  const h = document.getElementById('usernameHint');
+  h.textContent = text;
+  h.className = 'field-hint' + (cls ? ' ' + cls : '');
+}
+async function checkUsername(v) {
+  try {
+    const r = await fetch("{% url 'check_username' %}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': regCsrf() },
+      body: JSON.stringify({ username: v })
+    });
+    const d = await r.json();
+    const st = document.getElementById('usernameStatus');
+    if (usernameInp.value !== v) return;   // eskirgan javob
+    if (d.available) {
+      usernameOk = true;
+      setUsernameHint('✓ ' + (d.reason || "Bo'sh"), 'ok');
+      st.textContent = '✓'; st.className = 'input-status show'; st.style.color = '#10d9a0';
+    } else {
+      usernameOk = false;
+      setUsernameHint('✕ ' + (d.reason || 'Band'), 'err');
+      st.textContent = '✕'; st.className = 'input-status show'; st.style.color = '#ef4444';
+    }
+  } catch (e) {
+    setUsernameHint("Tekshirib bo'lmadi — davom etishingiz mumkin", '');
+    usernameOk = true;   // tarmoq xatosida bloklamaymiz (server baribir tekshiradi)
+  }
+}
+
+/* ════════ SOTUVCHI — "qaysi do'kon" jonli tekshiruvi ════════ */
+const dokonInp = document.getElementById('dokonUsernameInput');
+let dokonTimer = null;
+if (dokonInp) {
+  dokonInp.addEventListener('input', function() {
+    const v = this.value.trim().toLowerCase();
+    const st = document.getElementById('dokonStatus');
+    const h = document.getElementById('dokonHint');
+    st.className = 'input-status';
+    h.className = 'field-hint'; h.textContent = "Do'kon egasining username'ini kiriting";
+    clearTimeout(dokonTimer);
+    if (v.length < 3) return;
+    h.className = 'field-hint load'; h.textContent = 'Tekshirilmoqda...';
+    dokonTimer = setTimeout(async () => {
+      try {
+        const r = await fetch("{% url 'check_dokon' %}", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': regCsrf() },
+          body: JSON.stringify({ username: v })
+        });
+        const d = await r.json();
+        if (dokonInp.value.trim().toLowerCase() !== v) return;
+        if (d.ok) {
+          h.className = 'field-hint ok'; h.textContent = '✓ ' + d.dokon_nomi + ' — shu do\'konmi?';
+          st.textContent = '✓'; st.className = 'input-status show'; st.style.color = '#10d9a0';
+        } else {
+          h.className = 'field-hint err'; h.textContent = '✕ ' + (d.reason || 'Topilmadi');
+          st.textContent = '✕'; st.className = 'input-status show'; st.style.color = '#ef4444';
+        }
+      } catch (e) {
+        h.className = 'field-hint'; h.textContent = "Tekshirib bo'lmadi";
+      }
+    }, 450);
+  });
+}
+
+/* ════════ 1-QADAM → 2-QADAM o'tish (validatsiya) ════════ */
+function goStep2() {
+  const rol = document.querySelector('input[name="rol"]:checked');
+  const ism = document.getElementById('ismInput');
+  const pass = document.getElementById('passwordInput');
+
+  if (!rol) { showToast('Avval rolingizni tanlang', 'error'); return; }
+  if (!ism.value.trim()) { showToast('Ismingizni kiriting', 'error'); ism.focus(); return; }
+  if (usernameInp.value.trim().length < 3) {
+    showToast('Username kamida 3 ta belgi bo\'lsin', 'error'); usernameInp.focus(); return;
+  }
+  if (!usernameOk) {
+    showToast('Username band yoki noto\'g\'ri — boshqasini tanlang', 'error');
+    usernameInp.focus(); return;
+  }
+  if (pass.value.length < 6) {
+    showToast('Parol kamida 6 ta belgidan iborat bo\'lsin', 'error'); pass.focus(); return;
+  }
+  // O'tamiz
+  document.getElementById('step1').style.display = 'none';
+  document.getElementById('step2').style.display = 'block';
+  document.getElementById('wizDot2').classList.add('active');
+  document.getElementById('wizLabel').textContent = '2-qadam · Aloqa va tasdiqlash';
+  document.querySelector('.auth-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => { if (map) map.invalidateSize(); }, 200);
+}
+function goStep1() {
+  document.getElementById('step2').style.display = 'none';
+  document.getElementById('step1').style.display = 'block';
+  document.getElementById('wizDot2').classList.remove('active');
+  document.getElementById('wizLabel').textContent = '1-qadam · Hisob';
+  document.querySelector('.auth-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ════════ GEOLOKATSIYA (dokon egasi) ════════ */
+function setLocation(lat, lng) {
+  document.getElementById('hiddenLat').value = lat;
+  document.getElementById('hiddenLng').value = lng;
+  document.getElementById('latDisplay').textContent = lat.toFixed(6);
+  document.getElementById('lngDisplay').textContent = lng.toFixed(6);
+  document.getElementById('geoCoords').style.display = 'block';
+  if (typeof reverseGeocode === 'function') reverseGeocode(lat, lng);
+}
+function showStatus(msg, type) {
+  const el = document.getElementById('geoStatus');
+  el.textContent = msg; el.className = 'geoStatus-' + type; el.style.display = 'block';
+}
+function getMyLocation() {
+  if (!navigator.geolocation) { showStatus('❌ Brauzeringiz geolokatsiyani qo\'llab-quvvatlamaydi', 'err'); return; }
+  document.getElementById('btnMyLocation').classList.add('active');
+  showStatus('📡 Joylashuv aniqlanmoqda...', 'load');
+  navigator.geolocation.getCurrentPosition(
+    function(pos) {
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      setLocation(lat, lng);
+      showStatus('✅ Joylashuv aniqlandi!', 'ok');
+      document.getElementById('btnMyLocation').classList.add('active');
+      document.getElementById('btnPickMap').classList.remove('active');
+      openMapAt(lat, lng);
+    },
+    function(err) {
+      document.getElementById('btnMyLocation').classList.remove('active');
+      let msg = '❌ ';
+      if (err.code === 1) msg += 'Ruxsat berilmadi. Brauzer sozlamalaridan ruxsat bering.';
+      else if (err.code === 2) msg += 'Joylashuv aniqlanmadi.';
+      else msg += 'Xatolik yuz berdi.';
+      showStatus(msg, 'err');
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+function openMap() {
+  document.getElementById('btnPickMap').classList.add('active');
+  document.getElementById('btnMyLocation').classList.remove('active');
+  const lat = parseFloat(document.getElementById('hiddenLat').value) || 41.2995;
+  const lng = parseFloat(document.getElementById('hiddenLng').value) || 69.2401;
+  openMapAt(lat, lng);
+  showStatus('🗺️ Xaritada dokon joylashuvini belgilang', 'load');
+}
+function openMapAt(lat, lng) {
+  const container = document.getElementById('mapContainer');
+  container.style.display = 'block';
+  if (!map) {
+    map = L.map('leafletMap').setView([lat, lng], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+    map.on('click', function(e) {
+      const lt = e.latlng.lat, ln = e.latlng.lng;
+      setLocation(lt, ln);
+      if (marker) marker.setLatLng([lt, ln]); else marker = L.marker([lt, ln]).addTo(map);
+      showStatus('✅ Joylashuv tanlandi!', 'ok');
+      document.getElementById('btnPickMap').classList.add('active');
+    });
+  } else { map.setView([lat, lng], 15); }
+  if (marker) marker.setLatLng([lat, lng]); else marker = L.marker([lat, lng]).addTo(map);
+  setTimeout(() => map.invalidateSize(), 100);
+}
+document.getElementById('mashinaRaqami')?.addEventListener('input', function() { this.value = this.value.toUpperCase(); });
+
+/* ── Mavzu almashtirish ── */
+function syncAuthIcon() {
+  const el = document.getElementById('authThemeIcon');
+  if (el) el.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+}
+function authToggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('dt-theme', next);
+  syncAuthIcon();
+}
+syncAuthIcon();
+
+/* ── Reverse geocode: koordinatadan manzil ── */
+async function reverseGeocode(lat, lng) {
+  const inp = document.getElementById('manzilInput');
+  if (!inp) return;
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=uz`);
+    const d = await r.json();
+    if (d && d.display_name) inp.value = d.display_name;
+  } catch (e) {}
+}
+
+/* ── Email tasdiqlash ── */
+let regTimer = null;
+function regCsrf() {
+  const m = document.querySelector('input[name=csrfmiddlewaretoken]');
+  if (m) return m.value;
+  const c = document.cookie.match(/csrftoken=([^;]+)/);
+  return c ? c[1] : '';
+}
+function startCountdown(seconds) {
+  clearTimeout(regTimer);
+  const hint = document.getElementById('codeHint');
+  const btn = document.getElementById('sendCodeBtn');
+  let left = seconds; btn.disabled = true;
+  (function tick() {
+    if (left <= 0) {
+      clearTimeout(regTimer);
+      hint.innerHTML = "<span style='color:#ef4444'>&#9200; Kod muddati tugadi. Qayta kod yuboring.</span>";
+      btn.disabled = false; btn.innerHTML = '<i class="fas fa-redo"></i> Qayta kod yuborish';
+      return;
+    }
+    hint.innerHTML = "Kod yuborildi. Amal qilish muddati: <b>" + left + "</b> soniya";
+    left--; regTimer = setTimeout(tick, 1000);
+  })();
+}
+function startBlockCountdown(seconds) {
+  clearTimeout(regTimer);
+  const hint = document.getElementById('codeHint');
+  const btn = document.getElementById('sendCodeBtn');
+  const kod = document.getElementById('tasdiqKodi');
+  if (kod) kod.disabled = true;
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-ban"></i> Bloklangan';
+  let left = seconds;
+  (function tick() {
+    if (left <= 0) {
+      clearTimeout(regTimer);
+      btn.disabled = false; btn.innerHTML = '<i class="fas fa-envelope"></i> Kod yuborish';
+      hint.textContent = "Endi qayta urinib ko'rishingiz mumkin.";
+      if (kod) kod.disabled = false;
+      return;
+    }
+    const m = Math.floor(left / 60), s = left % 60;
+    hint.innerHTML = "<span style='color:#ef4444'>&#128274; Bloklangan. " + m + ":" + String(s).padStart(2, '0') + " dan keyin urinib ko'ring.</span>";
+    left--; regTimer = setTimeout(tick, 1000);
+  })();
+}
+async function sendRegCode() {
+  const emailInp = document.getElementById('regEmail');
+  const email = (emailInp.value || '').trim();
+  if (!email || !email.includes('@')) { showToast("Avval to'g'ri email kiriting", 'error'); emailInp.focus(); return; }
+  const btn = document.getElementById('sendCodeBtn');
+  const old = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yuborilmoqda...';
+  try {
+    const res = await fetch("{% url 'send_register_code' %}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': regCsrf() },
+      body: JSON.stringify({ email: email })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      document.getElementById('codeWrap').style.display = 'block';
+      const kod = document.getElementById('tasdiqKodi');
+      kod.disabled = false; kod.value = '';
+      if (d.test && d.code) { kod.value = d.code; showToast('TEST REJIMI: kod avtomatik kiritildi', 'success'); }
+      else { showToast('Kod emailga yuborildi' + (d.attempts_left != null ? " (qolgan urinish: " + d.attempts_left + ")" : ''), 'success'); }
+      startCountdown(d.ttl || 60); kod.focus();
+    } else if (d.blocked) {
+      document.getElementById('codeWrap').style.display = 'block';
+      showToast(d.error || 'Email bloklangan', 'error');
+      startBlockCountdown(d.block_seconds || 3600);
+    } else {
+      showToast(d.error || 'Xatolik yuz berdi', 'error');
+      btn.disabled = false; btn.innerHTML = old;
+    }
+  } catch (err) {
+    showToast('Xatolik yuz berdi', 'error');
+    btn.disabled = false; btn.innerHTML = old;
+  }
+}
+
+/* ── Yuborishdan oldingi yakuniy tekshiruv ── */
+document.getElementById('regForm').addEventListener('submit', function(e) {
+  const rol = document.querySelector('input[name="rol"]:checked');
+  const pass = document.getElementById('passwordInput');
+  if (pass && pass.value.length < 6) {
+    e.preventDefault(); showToast("Parol kamida 6 ta belgidan iborat bo'lishi kerak", 'error'); goStep1(); pass.focus(); return;
+  }
+  const kodInp = document.getElementById('tasdiqKodi');
+  const codeWrap = document.getElementById('codeWrap');
+  if (!codeWrap || codeWrap.style.display === 'none' || !kodInp || !kodInp.value.trim()) {
+    e.preventDefault();
+    showToast("Avval emailingizni tasdiqlang: kod yuboring va kelgan kodni kiriting", 'error');
+    return;
+  }
+  if (rol && rol.value === 'dokon_egasi') {
+    const lat = document.getElementById('hiddenLat').value;
+    const lng = document.getElementById('hiddenLng').value;
+    if (!lat || !lng) {
+      e.preventDefault();
+      showToast("Iltimos, do'kon joylashuvini belgilang (hozirgi joylashuv yoki xaritadan)", 'error');
+      const geo = document.getElementById('geoStatus');
+      if (geo) { geo.textContent = '📍 Joylashuvni belgilash majburiy!'; geo.className = 'geoStatus-err'; geo.style.display = 'block'; }
+    }
+  }
+});
+</script>
+{% endblock %}

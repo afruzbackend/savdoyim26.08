@@ -1,0 +1,65 @@
+{% comment %}
+Qayta ishlatiladigan onboarding checklist kartochkasi.
+Kutiladigan kontekst: `onboarding` dict — {korsat, bajarilgan, jami, foiz, sarlavha, izoh, qadamlar[]}.
+Har qadam: {nomi, tavsif, bajarildi, url, icon, majburiy}.
+Ishlatish: {% include 'partials/onboarding_checklist.html' %}
+{% endcomment %}
+{% if onboarding.korsat %}
+<style>
+.ob-card{background:var(--card);border:1px solid var(--border2);border-radius:16px;
+  padding:20px 22px;margin-bottom:22px;position:relative;overflow:hidden;}
+.ob-card::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;
+  background:linear-gradient(var(--accent3),var(--accent));}
+.ob-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  flex-wrap:wrap;margin-bottom:16px;}
+.ob-title{font-size:16px;font-weight:700;display:flex;align-items:center;gap:9px;}
+.ob-title i{color:var(--accent3);}
+.ob-sub{color:var(--text3);font-size:12.5px;margin-top:2px;}
+.ob-badge{font-size:12px;font-weight:700;color:var(--accent3);
+  background:color-mix(in srgb,var(--accent3) 14%,transparent);
+  padding:5px 11px;border-radius:20px;white-space:nowrap;}
+.ob-bar{height:7px;border-radius:6px;background:var(--border);overflow:hidden;margin-bottom:18px;}
+.ob-bar-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent3),var(--accent));
+  transition:width .5s ease;}
+.ob-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;}
+.ob-step{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;
+  border:1px solid var(--border);background:var(--bg2,transparent);text-decoration:none;
+  color:inherit;transition:border-color .15s,transform .15s;}
+.ob-step:hover{border-color:var(--accent3);transform:translateY(-2px);}
+.ob-step.done{opacity:.62;}
+.ob-step.done:hover{transform:none;border-color:var(--border);}
+.ob-ico{width:38px;height:38px;border-radius:10px;flex:0 0 auto;display:flex;
+  align-items:center;justify-content:center;font-size:15px;
+  background:color-mix(in srgb,var(--accent3) 12%,transparent);color:var(--accent3);}
+.ob-step.done .ob-ico{background:color-mix(in srgb,#28c76f 16%,transparent);color:#28c76f;}
+.ob-txt{min-width:0;flex:1;}
+.ob-nomi{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:7px;}
+.ob-tavsif{color:var(--text3);font-size:11.5px;margin-top:2px;}
+.ob-check{color:#28c76f;font-size:14px;}
+.ob-arrow{color:var(--text3);font-size:12px;margin-left:auto;flex:0 0 auto;}
+</style>
+<div class="ob-card">
+  <div class="ob-head">
+    <div>
+      <div class="ob-title"><i class="fas fa-rocket"></i> {{ onboarding.sarlavha|default:"Ishga tushiring" }}</div>
+      <div class="ob-sub">{{ onboarding.izoh|default:"Bir necha qadamda tizimni to'liq faollashtiring" }}</div>
+    </div>
+    <span class="ob-badge">{{ onboarding.bajarilgan }}/{{ onboarding.jami }} bajarildi</span>
+  </div>
+  <div class="ob-bar"><div class="ob-bar-fill" style="width:{{ onboarding.foiz }}%"></div></div>
+  <div class="ob-steps">
+    {% for q in onboarding.qadamlar %}
+    <a href="{{ q.url }}" class="ob-step {% if q.bajarildi %}done{% endif %}">
+      <span class="ob-ico"><i class="fas {{ q.icon }}"></i></span>
+      <span class="ob-txt">
+        <span class="ob-nomi">{{ q.nomi }}
+          {% if q.bajarildi %}<i class="fas fa-check-circle ob-check"></i>{% endif %}
+        </span>
+        <span class="ob-tavsif">{{ q.tavsif }}</span>
+      </span>
+      {% if not q.bajarildi %}<i class="fas fa-chevron-right ob-arrow"></i>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}

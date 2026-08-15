@@ -1,0 +1,529 @@
+{% extends 'base.html' %}
+{% load savdo_extras %}
+{% block title %}Kassa{% endblock %}
+{% block page_title %}Kassa{% endblock %}
+{% block page_sub %}Savdo tizimi{% endblock %}
+
+{% block extra_css %}
+<style>
+.pos-wrap{display:grid;grid-template-columns:1fr 360px;gap:16px;height:calc(100vh - 150px);}
+.prod-panel{overflow-y:auto;}
+.s-inp{position:relative;margin-bottom:14px;}
+.s-inp input{padding-left:40px!important;}
+.s-ico{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text3);}
+.prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;}
+.pc{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;transition:all 0.2s;position:relative;text-align:left;width:100%;color:var(--text);font-family:inherit;cursor:pointer;}
+.pc:hover{border-color:var(--accent);transform:translateY(-2px);}
+.pc-name{font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.3;}
+.pc-price{font-size:15px;font-weight:800;color:var(--accent);}
+.pc-qty{font-size:11px;color:var(--text3);margin-top:3px;}
+.pc-badge{position:absolute;top:8px;right:8px;background:var(--warn);color:#000;font-size:9px;font-weight:700;padding:2px 5px;border-radius:8px;}
+.chek-panel{display:flex;flex-direction:column;gap:10px;}
+.chek-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;flex:1;}
+.chek-items{max-height:220px;overflow-y:auto;}
+.ci{display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid var(--border);}
+.ci:last-child{border-bottom:none;}
+.ci-name{flex:1;font-size:13px;}
+.qty-form{display:flex;align-items:center;gap:4px;}
+.qty-btn{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+.qty-btn:hover{border-color:var(--accent);color:var(--accent);}
+.qty-num{min-width:20px;text-align:center;font-size:13px;font-weight:600;}
+.ci-price{font-size:12px;font-weight:700;color:var(--accent);min-width:75px;text-align:right;}
+.ci-del{border:none;background:transparent;color:var(--text3);cursor:pointer;transition:color 0.15s;font-size:13px;}
+.ci-del:hover{color:var(--danger);}
+.sum-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;gap:10px;}
+.sum-big{font-size:20px;color:var(--accent);font-weight:800;}
+.tol-tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;}
+.tol-btn input{display:none;}
+.tol-btn span{display:block;padding:8px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:13px;font-weight:600;text-align:center;}
+.tol-btn input:checked+span{border-color:var(--accent);background:var(--glow-blue);color:var(--accent);}
+.pc-badge{color:#fff!important;}
+.pc:hover{box-shadow:0 4px 16px var(--glow-blue);}
+.chek-box,.karta-input{transition:background 0.3s,border-color 0.3s;}
+.empty-chek{text-align:center;padding:40px 0;color:var(--text3);}
+.empty-chek i{font-size:36px;margin-bottom:10px;display:block;opacity:0.3;}
+.hidden{display:none!important;}
+/* Karta input formatlash */
+.karta-input{letter-spacing:2px;font-size:16px;font-weight:700;}
+@media(max-width:900px){.pos-wrap{grid-template-columns:1fr;height:auto;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 18px;">
+    <div style="font-size:11px;color:var(--text2);">Kassa Balansi</div>
+    <div style="font-size:18px;font-weight:800;color:var(--accent);">{{ kassa.balans|default:"0"|floatformat:0 }} UZS</div>
+  </div>
+  <a href="/checkout/kassa/hisobot/" class="btn btn-outline btn-sm"><i class="fas fa-chart-bar"></i> Hisobot</a>
+</div>
+
+<style>.smena-locked{opacity:.35;pointer-events:none;filter:grayscale(.6);user-select:none;}</style>
+
+{% if smena %}
+<div style="background:rgba(16,217,160,0.10);border:1px solid rgba(16,217,160,0.3);border-radius:12px;
+     padding:12px 16px;margin-bottom:16px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div style="font-size:13.5px;">
+      <b style="color:var(--accent3);">🟢 Smena ochiq</b>
+      · {{ smena.sotuvchi.first_name|default:smena.sotuvchi.username }}
+      · {{ smena.ochilgan|date:"d.m H:i" }} dan
+      {% if smena.boshlangich_naqd %}
+      <span style="color:var(--text3);">· boshlang'ich naqd {{ smena.boshlangich_naqd|floatformat:0 }}</span>
+      {% endif %}
+    </div>
+    <button type="button" class="btn btn-danger btn-sm" onclick="smenaYopishToggle()">
+      <i class="fas fa-lock"></i> Smenani yopish
+    </button>
+  </div>
+
+  <!-- Yopish + naqd verka (yashirin, tugma bosilganda ochiladi) -->
+  <form method="post" action="{% url 'smena_yopish' %}" id="smenaYopForm"
+        style="display:none;margin-top:12px;padding-top:12px;border-top:1px dashed rgba(16,217,160,0.35);">
+    {% csrf_token %}
+    <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">
+      <i class="fas fa-hand-holding-dollar" style="color:var(--accent);"></i>
+      Kassadagi <b>naqd pulni sanang</b> va kiriting — tizim farqni hisoblab beradi (ixtiyoriy, lekin tavsiya etiladi):
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;">
+      <input type="number" name="real_naqd" class="form-control" min="0" inputmode="numeric"
+             placeholder="Masalan: 1 250 000" style="flex:1;min-width:180px;">
+      <button type="submit" class="btn btn-danger"><i class="fas fa-lock"></i> Yopish va topshirish</button>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-top:8px;">
+      Hisobot do'kon egasiga yuboriladi. Bo'sh qoldirsangiz, verkasiz yopiladi.
+    </div>
+  </form>
+</div>
+<script>
+function smenaYopishToggle(){
+  var f = document.getElementById('smenaYopForm');
+  f.style.display = (f.style.display === 'none') ? 'block' : 'none';
+  if(f.style.display === 'block'){ f.querySelector('input[name=real_naqd]').focus(); }
+}
+</script>
+{% else %}
+<div style="text-align:center;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.3);
+     border-radius:14px;padding:26px 16px;margin-bottom:16px;">
+  <div style="font-size:34px;">🔒</div>
+  <div style="font-size:16px;font-weight:700;margin:8px 0 4px;">Smena yopiq</div>
+  <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+    Sotishni boshlash uchun avval smenani oching.
+  </div>
+  <form method="post" action="{% url 'smena_ochish' %}"
+        style="max-width:360px;margin:0 auto;display:flex;flex-direction:column;gap:10px;">
+    {% csrf_token %}
+    <input type="number" name="boshlangich_naqd" class="form-control" min="0" inputmode="numeric"
+           placeholder="Kassadagi boshlang'ich naqd (ixtiyoriy)" style="text-align:center;">
+    <button class="btn btn-primary"><i class="fas fa-unlock"></i> Smenani ochish</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="pos-wrap{% if not smena %} smena-locked{% endif %}">
+  <!-- Mahsulotlar -->
+  <div class="prod-panel">
+    <div style="display:flex;gap:8px;align-items:stretch;">
+      <div class="s-inp" style="flex:1;">
+        <i class="fas fa-search s-ico"></i>
+        <input type="text" id="searchInput" class="form-control" placeholder="Mahsulot qidirish..."
+               autocomplete="off" inputmode="none">
+      </div>
+      <button type="button" class="btn btn-primary" id="kameraBtn" onclick="kameraOch()"
+              title="Kamera bilan barkod skanerlash" style="flex-shrink:0;">
+        <i class="fas fa-camera"></i> <span class="kamera-txt">Skaner</span>
+      </button>
+    </div>
+    <div class="prod-grid" id="prodGrid">
+      {% for m in mahsulotlar %}
+      <form method="post" action="{% url 'kassa_savat' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add">
+        <input type="hidden" name="product_id" value="{{ m.id }}">
+        <button type="submit" class="pc" data-name="{{ m.nomi|lower }}"
+                {% if m.kasrli %}onclick="event.preventDefault(); sonYoz({{ m.id }}, '', '{{ m.birlik }}', true);"{% endif %}
+                {% if m.muddati_otgan %}style="opacity:0.55;"{% endif %}>
+          {% if m.muddati_otgan %}<span class="pc-badge" style="background:var(--danger);color:#fff;">Muddati o'tgan</span>
+          {% elif m.muddati_tugayapti %}<span class="pc-badge" style="background:var(--warn);color:#fff;">Tugayapti</span>
+          {% elif m.kam_qoldi %}<span class="pc-badge">Kam</span>{% endif %}
+          {% if m.kasrli %}<span class="pc-badge" style="background:var(--accent2);color:#fff;">⚖ {{ m.birlik }}</span>{% endif %}
+          <div class="pc-name">{{ m.nomi }}</div>
+          <div class="pc-price">{{ m.narx|floatformat:0 }} UZS{% if m.kasrli %}<span style="font-size:10px;color:var(--text3);">/{{ m.birlik }}</span>{% endif %}</div>
+          <div class="pc-qty">{{ m.soni|son }} {{ m.birlik }}</div>
+        </button>
+      </form>
+      {% empty %}
+      <div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text3);">
+        <i class="fas fa-boxes" style="font-size:36px;margin-bottom:12px;display:block;opacity:0.3;"></i>
+        Mahsulot yo'q
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Chek paneli -->
+  <div class="chek-panel">
+    <div class="chek-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-size:14px;font-weight:700;"><i class="fas fa-receipt" style="color:var(--accent);"></i> Chek</div>
+        <form method="post" action="{% url 'kassa_savat' %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="clear">
+          <button type="submit" class="btn btn-outline btn-sm" style="padding:4px 10px;">Tozalash</button>
+        </form>
+      </div>
+
+      <div class="chek-items">
+        {% for item in cart_items %}
+        <div class="ci">
+          <div class="ci-name">{{ item.product.nomi }}</div>
+          <form method="post" action="{% url 'kassa_savat' %}" class="qty-form">
+            {% csrf_token %}
+            <input type="hidden" name="product_id" value="{{ item.product.id }}">
+            <button type="submit" name="action" value="dec" class="qty-btn">-</button>
+            <span class="qty-num" onclick="sonYoz({{ item.product.id }}, '{{ item.qty|son }}', '{{ item.product.birlik }}', {{ item.product.kasrli|yesno:'true,false' }})"
+                  title="Bosib son/og'irlik yozing" style="cursor:pointer;text-decoration:underline dotted;">{{ item.qty|son }}{% if item.product.kasrli %} <span style="font-size:10px;color:var(--text3);">{{ item.product.birlik }}</span>{% endif %}</span>
+            <button type="submit" name="action" value="inc" class="qty-btn">+</button>
+          </form>
+          <div class="ci-price">{{ item.subtotal|floatformat:0 }}</div>
+          <form method="post" action="{% url 'kassa_savat' %}">
+            {% csrf_token %}
+            <input type="hidden" name="product_id" value="{{ item.product.id }}">
+            <button type="submit" name="action" value="del" class="ci-del"><i class="fas fa-times"></i></button>
+          </form>
+        </div>
+        {% empty %}
+        <div class="empty-chek"><i class="fas fa-shopping-basket"></i>Mahsulot tanlang</div>
+        {% endfor %}
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">
+        <div class="sum-row"><span style="color:var(--text2);">Jami:</span><span>{{ cart_total|floatformat:0 }} UZS</span></div>
+      </div>
+    </div>
+
+    <!-- To'lov formasi -->
+    <form method="post" action="{% url 'savdo_qilish' %}" id="savdoForm"
+          style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;">
+      {% csrf_token %}
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">
+        <i class="fas fa-money-bill" style="color:var(--accent);"></i> To'lov usuli
+      </div>
+
+      <div class="tol-tabs">
+        <label class="tol-btn">
+          <input type="radio" name="tolash_turi" value="naqd" checked onchange="tolTur('naqd')">
+          <span>💵 Naqd</span>
+        </label>
+        <label class="tol-btn">
+          <input type="radio" name="tolash_turi" value="karta" onchange="tolTur('karta')">
+          <span>💳 Karta</span>
+        </label>
+        <label class="tol-btn">
+          <input type="radio" name="tolash_turi" value="qarz" onchange="tolTur('qarz')">
+          <span>📋 Qarz</span>
+        </label>
+      </div>
+
+      <!-- NAQD: berilgan pul IXTIYORIY (faqat qaytim uchun) -->
+      <div id="naqd-fields">
+        <div class="form-group">
+          <label class="form-label">Berilgan pul <span style="color:var(--text3);font-weight:400;">(ixtiyoriy — qaytim uchun)</span></label>
+          <input type="number" name="berilgan" id="berilganInput" class="form-control"
+                 placeholder="Kiritmasangiz ham bo'ladi" min="0" inputmode="numeric"
+                 oninput="qaytimHisob()">
+          <div id="qaytimKor" style="font-size:13px;color:var(--accent3);font-weight:700;margin-top:6px;display:none;">
+            Qaytim: <span id="qaytimVal">0</span> UZS
+          </div>
+        </div>
+      </div>
+
+      <!-- KARTA: raqam + tasdiqlash kodi -->
+      <div id="karta-fields" class="hidden">
+        <div class="form-group">
+          <label class="form-label">Karta raqami:</label>
+          <input type="text" name="karta_raqami" id="kartaRaqam" class="form-control karta-input"
+                 placeholder="9860 0000 0000 0000" maxlength="19" inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="form-group" id="kodField" style="display:none;">
+          <label class="form-label">Tasdiqlash kodi:</label>
+          <input type="text" name="karta_kod" id="kartaKod" class="form-control"
+                 placeholder="Kodni kiriting" maxlength="6" inputmode="numeric">
+        </div>
+        <button type="button" onclick="kartaKodYuborish()" id="kodBtn" class="btn btn-outline btn-sm" style="width:100%;justify-content:center;margin-bottom:10px;">
+          <i class="fas fa-paper-plane"></i> Kod Yuborish
+        </button>
+      </div>
+
+      <!-- QARZ: mijoz ism + tel + qaytarish sanasi (chegirmasiz) -->
+      <div id="qarz-fields" class="hidden">
+        <div class="form-group">
+          <label class="form-label">Mijoz ismi:</label>
+          <input type="text" name="mijoz_ism" class="form-control" placeholder="Mijoz ismi">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Telefon raqam:</label>
+          <input type="text" name="mijoz_telefon" class="form-control"
+                 placeholder="+998 90 000 00 00" inputmode="numeric">
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fas fa-calendar-day" style="color:var(--accent);"></i> Qaytarish sanasi:</label>
+          <input type="date" name="qaytarish_sana" class="form-control">
+          <div style="font-size:11.5px;color:var(--text3);margin-top:5px;">
+            Mijoz qarzni qaytarishga va'da bergan sana — kelgusida shu sana bo'yicha SMS orqali eslatma yuboriladi.
+          </div>
+        </div>
+      </div>
+
+      <div class="sum-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">
+        <span style="font-weight:700;">To'lash:</span>
+        <span class="sum-big">{{ cart_total|floatformat:0 }} UZS</span>
+      </div>
+
+      <button type="submit" class="btn btn-primary"
+              style="width:100%;justify-content:center;padding:13px;margin-top:10px;font-size:15px;border-radius:10px;">
+        <i class="fas fa-check"></i> Yakunlash
+      </button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Django xabarlarini (masalan "omborda qolmadi") ekranga qalqitib chiqaramiz (#6)
+window.addEventListener('DOMContentLoaded', function() {
+  {% for m in messages %}
+  showToast("{{ m|escapejs }}", "{% if m.tags == 'error' %}error{% elif m.tags == 'warning' %}error{% else %}info{% endif %}");
+  {% endfor %}
+  // Yuqoridagi takroriy alert banner'ni yashiramiz (toast yetarli)
+  document.querySelectorAll('.content > .alert').forEach(function(a){ a.style.display='none'; });
+});
+
+// Karobka/tarozi: savatdagi miqdorni bosib, umumiy son yoki og'irlikni yozish
+function sonYoz(pid, hozir, birlik, kasrli){
+  const savol = kasrli
+    ? ("Qancha " + birlik + "? (masalan 0.75)")
+    : "Necha dona? (karobkadagi umumiy sonini yozing)";
+  const v = prompt(savol, hozir);
+  if(v === null) return;
+  const n = kasrli ? parseFloat(String(v).replace(',', '.')) : parseInt(v, 10);
+  if(isNaN(n) || n < 0){ showToast("Noto'g'ri miqdor kiritildi", 'error'); return; }
+  const tok = document.querySelector('input[name=csrfmiddlewaretoken]');
+  const f = document.createElement('form');
+  f.method = 'post'; f.action = "{% url 'kassa_savat' %}";
+  f.innerHTML =
+    '<input type="hidden" name="csrfmiddlewaretoken" value="' + (tok ? tok.value : '') + '">' +
+    '<input type="hidden" name="action" value="set">' +
+    '<input type="hidden" name="product_id" value="' + pid + '">' +
+    '<input type="hidden" name="soni" value="' + n + '">';
+  document.body.appendChild(f);
+  f.submit();
+}
+
+// To'lov turi o'zgartirish
+function tolTur(tur) {
+  document.getElementById('naqd-fields').classList.add('hidden');
+  document.getElementById('karta-fields').classList.add('hidden');
+  document.getElementById('qarz-fields').classList.add('hidden');
+  document.getElementById(tur + '-fields').classList.remove('hidden');
+}
+
+// Karta raqami formatlash (9860 0000 0000 0000)
+document.getElementById('kartaRaqam').addEventListener('input', function(e) {
+  let v = e.target.value.replace(/\D/g, '').substring(0, 16);
+  e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
+});
+
+// Kod yuborish (test: istalgan kod qabul)
+let kodYuborildi = false;
+function kartaKodYuborish() {
+  const raqam = document.getElementById('kartaRaqam').value.replace(/\s/g, '');
+  if (raqam.length < 16) { showToast('Karta raqamini to\'liq kiriting!', 'error'); return; }
+  document.getElementById('kodField').style.display = 'block';
+  document.getElementById('kodBtn').innerHTML = '<i class="fas fa-check"></i> Kod Yuborildi';
+  document.getElementById('kodBtn').disabled = true;
+  kodYuborildi = true;
+  showToast('Tasdiqlash kodi yuborildi!', 'success');
+}
+
+// Mahsulot qidirish
+document.getElementById('searchInput').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('#prodGrid .pc').forEach(btn => {
+    const wrap = btn.closest('form');
+    wrap.style.display = btn.dataset.name.includes(q) ? '' : 'none';
+  });
+});
+
+// "Berilgan pul" IXTIYORIY — kiritilsa qaytim jonli ko'rsatiladi (majburiy emas).
+const CART_TOTAL = {{ cart_total|floatformat:0 }};
+function qaytimHisob(){
+  const inp = document.getElementById('berilganInput');
+  const kor = document.getElementById('qaytimKor');
+  const v = parseFloat(inp.value) || 0;
+  if(v > CART_TOTAL){
+    document.getElementById('qaytimVal').textContent = (v - CART_TOTAL).toLocaleString('ru-RU');
+    kor.style.display = 'block';
+  } else {
+    kor.style.display = 'none';
+  }
+}
+
+// Mobil: klaviatura faqat bosganda
+document.querySelectorAll('.form-control').forEach(inp => {
+  inp.setAttribute('readonly', 'readonly');
+  inp.addEventListener('click', function() {
+    this.removeAttribute('readonly');
+    this.focus();
+  });
+  inp.addEventListener('blur', function() {
+    this.setAttribute('readonly', 'readonly');
+  });
+});
+// Search inputi uchun alohida
+const si = document.getElementById('searchInput');
+si.removeAttribute('readonly');
+</script>
+
+<!-- ═══════ KAMERA BARKOD SKANERI ═══════ -->
+<style>
+.skan-modal{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;
+  display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);}
+.skan-box{background:var(--card);border:1px solid var(--border);border-radius:18px;
+  width:100%;max-width:440px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+.skan-head{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:15px;}
+.skan-head i{color:var(--accent);}
+.skan-close{background:none;border:none;color:var(--text2);font-size:26px;cursor:pointer;line-height:1;}
+.skan-close:hover{color:var(--danger);}
+.skan-video-wrap{position:relative;width:100%;aspect-ratio:4/3;background:#000;overflow:hidden;}
+.skan-video-wrap video{width:100%;height:100%;object-fit:cover;}
+.skan-frame{position:absolute;inset:18% 12%;border:2px solid rgba(255,255,255,0.5);
+  border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.25);}
+.skan-line{position:absolute;left:12%;right:12%;height:2px;background:var(--accent);
+  box-shadow:0 0 12px var(--accent);animation:skanScan 2s ease-in-out infinite;}
+@keyframes skanScan{0%,100%{top:20%;}50%{top:78%;}}
+.skan-status{padding:12px 18px;text-align:center;font-size:14px;font-weight:600;color:var(--text2);}
+.skan-last{padding:0 14px 14px;display:flex;flex-direction:column;gap:6px;max-height:150px;overflow-y:auto;}
+.skan-item{padding:9px 12px;border-radius:9px;font-size:13px;font-weight:600;}
+.skan-item.ok{background:rgba(16,217,160,0.12);color:var(--accent3);}
+.skan-item.err{background:rgba(239,68,68,0.12);color:var(--danger);}
+@media (max-width:560px){.kamera-txt{display:none;}}
+</style>
+
+<div id="skanModal" class="skan-modal" style="display:none;">
+  <div class="skan-box">
+    <div class="skan-head">
+      <span><i class="fas fa-barcode"></i> Barkodni kameraga ko'rsating</span>
+      <button class="skan-close" onclick="kameraYop()">&times;</button>
+    </div>
+    <div class="skan-video-wrap">
+      <video id="skanVid" autoplay playsinline muted></video>
+      <div class="skan-frame"></div>
+      <div class="skan-line"></div>
+    </div>
+    <div class="skan-status" id="skanStatus">Kamera yoqilmoqda...</div>
+    <div class="skan-last" id="skanLast"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+let skanReader=null, skanStream=null, skanRunning=false;
+let oxirgiKod='', oxirgiVaqt=0, skanCount=0;
+
+function setStatus(t){ document.getElementById('skanStatus').textContent = t; }
+
+async function kameraOch(){
+  const modal = document.getElementById('skanModal');
+  modal.style.display = 'flex';
+  skanCount = 0;
+  document.getElementById('skanLast').innerHTML = '';
+  setStatus('Kamera yoqilmoqda...');
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    setStatus("Bu qurilmada kamera mavjud emas"); return;
+  }
+  try{
+    if(typeof ZXing !== 'undefined'){
+      skanReader = new ZXing.BrowserMultiFormatReader();
+      await skanReader.decodeFromVideoDevice(null, 'skanVid', (res) => {
+        if(res) onBarkod(res.getText());
+      });
+      skanRunning = true;
+      setStatus("Barkodni ramka ichiga joylang");
+    } else {
+      // Zaxira: brauzerning BarcodeDetector'i
+      skanStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+      document.getElementById('skanVid').srcObject = skanStream;
+      skanRunning = true;
+      if('BarcodeDetector' in window){ setStatus("Barkodni ramka ichiga joylang"); bdLoop(); }
+      else setStatus("Brauzer skanerni qo'llab-quvvatlamaydi");
+    }
+  }catch(e){ setStatus("Kamera ochilmadi: " + (e.message||e)); }
+}
+
+async function bdLoop(){
+  const v = document.getElementById('skanVid');
+  let bd; try{ bd = new BarcodeDetector(); }catch(e){ return; }
+  while(skanRunning){
+    try{
+      const codes = await bd.detect(v);
+      if(codes && codes.length) onBarkod(codes[0].rawValue);
+    }catch(e){}
+    await new Promise(r => setTimeout(r, 300));
+  }
+}
+
+function bip(){
+  try{
+    const a = new (window.AudioContext||window.webkitAudioContext)();
+    const o = a.createOscillator(), g = a.createGain();
+    o.connect(g); g.connect(a.destination);
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.2, a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.15);
+    o.start(); o.stop(a.currentTime + 0.15);
+  }catch(e){}
+}
+
+function onBarkod(kod){
+  kod = (kod||'').trim();
+  if(!kod) return;
+  const now = Date.now();
+  if(kod === oxirgiKod && now - oxirgiVaqt < 1500) return;  // dublikat skanni oldini olamiz
+  oxirgiKod = kod; oxirgiVaqt = now;
+  bip();
+  apiPost("{% url 'kassa_skan' %}", {barkod: kod}).then(r => {
+    const box = document.getElementById('skanLast');
+    if(r.error){
+      setStatus("❌ " + r.error);
+      const matn = r.muddati_otgan ? `⛔ ${r.error}` : `❌ ${kod} — topilmadi`;
+      box.insertAdjacentHTML('afterbegin', `<div class="skan-item err">${matn}</div>`);
+      if(r.muddati_otgan) showToast(r.error, 'error');
+      return;
+    }
+    const narx = Math.round(r.narx).toLocaleString('ru-RU').replace(/,/g,' ');
+    if(r.qoshildi){
+      skanCount++;
+      setStatus(`✅ Qo'shildi — jami ${skanCount} ta skan`);
+      box.insertAdjacentHTML('afterbegin',
+        `<div class="skan-item ok">✅ ${r.nomi} — ${narx} UZS · savatda: ${r.savatda}</div>`);
+    } else {
+      setStatus("⚠️ Ombordagi soni tugagan");
+      box.insertAdjacentHTML('afterbegin',
+        `<div class="skan-item err">⚠️ ${r.nomi} — qoldi tugagan (${r.soni_qoldi})</div>`);
+    }
+  }).catch(e => setStatus("Xatolik: " + e));
+}
+
+function kameraYop(){
+  skanRunning = false;
+  try{ if(skanReader){ skanReader.reset(); skanReader = null; } }catch(e){}
+  try{ if(skanStream){ skanStream.getTracks().forEach(t => t.stop()); skanStream = null; } }catch(e){}
+  document.getElementById('skanModal').style.display = 'none';
+  if(skanCount > 0) location.reload();  // savatdagi yangi mahsulotlarni ko'rsatish
+}
+</script>
+{% endblock %}

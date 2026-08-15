@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}Jo'natmani qabul qilish{% endblock %}
+{% block page_title %}Jo'natmani qabul qilish{% endblock %}
+{% block page_sub %}QR kodni skaner qiling — hammasi omborga qo'shiladi{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px;margin:0 auto;">
+  <div class="card-title"><i class="fas fa-qrcode" style="color:var(--accent);"></i> QR skaner</div>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:14px;">
+    Yetkazuvchi "Yetkazildi" bosgach ko'rsatgan <b>QR kod</b>ni skaner qiling.
+    Jo'natmadagi <b>barcha mahsulotlar</b> muddati bilan birga do'kon omboriga qo'shiladi.
+  </p>
+
+  <video id="cam" playsinline style="display:none;width:100%;max-height:320px;border-radius:12px;background:#000;margin-bottom:12px;"></video>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+    <button onclick="kameraOch()" class="btn btn-primary"><i class="fas fa-camera"></i> Kamerani yoqish</button>
+    <button onclick="kameraYop()" class="btn btn-outline" id="kameraYopBtn" style="display:none;"><i class="fas fa-stop"></i> To'xtatish</button>
+  </div>
+
+  <div style="border-top:1px solid var(--border);padding-top:14px;">
+    <label class="form-label">yoki jo'natma barkodini qo'lda kiriting:</label>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="barkodInput" class="form-control" placeholder="Masalan: A1B2C3D4E5F6" style="text-transform:uppercase;">
+      <button onclick="qabulQil(document.getElementById('barkodInput').value)" class="btn btn-success"><i class="fas fa-check"></i> Qabul</button>
+    </div>
+  </div>
+
+  <div id="natija" style="margin-top:16px;"></div>
+</div>
+
+<script>
+let stream=null, scanning=false;
+
+async function qabulQil(barkod){
+  barkod=(barkod||'').trim();
+  if(!barkod){ showToast('Barkod kiriting','error'); return; }
+  const res=await apiPost('{% url "jonatma_qabul_dokon_action" %}', {barkod});
+  const el=document.getElementById('natija');
+  if(res.status==='ok'){
+    let html=`<div style="padding:12px;border-radius:10px;background:rgba(24,216,178,.10);border:1px solid rgba(24,216,178,.25);">
+      <div style="font-weight:800;color:var(--accent3);"><i class="fas fa-circle-check"></i> ${res.soni} ta mahsulot omborga qo'shildi</div>
+      <div style="margin-top:8px;">`;
+    res.mahsulotlar.forEach(m=>{
+      html+=`<div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0;">
+        <span>${m.nomi} ${m.yangi?'<span style=\"color:var(--accent);font-size:11px;\">(yangi)</span>':''}</span>
+        <b>+${m.soni} ${m.birlik}</b></div>`;
+    });
+    html+='</div></div>';
+    el.innerHTML=html;
+    showToast('Omborga qo\'shildi!','success');
+    document.getElementById('barkodInput').value='';
+  } else {
+    el.innerHTML=`<div style="padding:12px;border-radius:10px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.25);color:var(--danger);"><i class="fas fa-circle-xmark"></i> ${res.error||'Xatolik'}</div>`;
+    showToast(res.error||'Xatolik','error');
+  }
+}
+
+async function kameraOch(){
+  if(!('BarcodeDetector' in window)){ showToast("Brauzer QR skanerni qo'llamaydi — qo'lda kiriting",'error'); return; }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ showToast('Kamera mavjud emas (HTTPS/localhost kerak)','error'); return; }
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    const v=document.getElementById('cam'); v.srcObject=stream; v.style.display='block';
+    document.getElementById('kameraYopBtn').style.display='inline-flex';
+    await v.play();
+    const bd=new BarcodeDetector({formats:['qr_code']});
+    scanning=true;
+    const loop=async()=>{
+      if(!scanning)return;
+      try{ const codes=await bd.detect(v); if(codes && codes.length){ const val=codes[0].rawValue; kameraYop(); qabulQil(val); return; } }catch(e){}
+      requestAnimationFrame(loop);
+    };
+    loop();
+  }catch(e){ showToast('Kamera ochilmadi','error'); }
+}
+function kameraYop(){
+  scanning=false;
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  document.getElementById('cam').style.display='none';
+  document.getElementById('kameraYopBtn').style.display='none';
+}
+</script>
+{% endblock %}

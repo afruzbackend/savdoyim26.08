@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Zavod So'rovi{% endblock %}
+{% block page_title %}Zavod So'rovi{% endblock %}
+{% block page_sub %}Ishlash uchun zavodga so'rov yuboring{% endblock %}
+{% block content %}
+
+<div class="grid-2">
+  <!-- Zavodlar ro'yxati -->
+  <div class="card">
+    <div class="card-title"><i class="fas fa-industry"></i> Zavodlar</div>
+    {% for z in zavodlar %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-weight:600;font-size:14px;">{{ z.zavod_nomi }}</div>
+        <div style="font-size:12px;color:var(--text3);">{{ z.mahsulot_turi|truncatechars:40 }}</div>
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="zavod_id" value="{{ z.id }}">
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fas fa-paper-plane"></i> So'rov
+        </button>
+      </form>
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:40px;color:var(--text3);">
+      <i class="fas fa-industry" style="font-size:36px;opacity:0.3;display:block;margin-bottom:12px;"></i>
+      Zavod yo'q
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Mening so'rovlarim -->
+  <div class="card">
+    <div class="card-title"><i class="fas fa-list"></i> Mening So'rovlarim</div>
+    {% for s in mening_sorovlarim %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-weight:600;font-size:14px;">{{ s.zavod.zavod_nomi }}</div>
+        <div style="font-size:12px;color:var(--text3);">{{ s.yaratilgan|date:"d.m.Y" }}</div>
+      </div>
+      {% if s.holat == 'kutilmoqda' %}
+        <span class="status status-warn"><i class="fas fa-clock"></i> Kutilmoqda</span>
+      {% elif s.holat == 'qabul_qilindi' %}
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span class="status status-green"><i class="fas fa-check"></i> Qabul</span>
+          <a href="{% url 'chat_boshla' s.zavod.foydalanuvchi.id %}" class="btn btn-outline btn-sm" title="Zavod bilan chat"><i class="fas fa-comments"></i> Chat</a>
+        </div>
+      {% else %}
+        <span class="status status-red"><i class="fas fa-times"></i> Rad etildi</span>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:40px;color:var(--text3);">
+      <i class="fas fa-inbox" style="font-size:36px;opacity:0.3;display:block;margin-bottom:12px;"></i>
+      So'rov yo'q
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

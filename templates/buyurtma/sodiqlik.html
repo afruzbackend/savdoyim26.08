@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}Sodiqlik ballari{% endblock %}
+{% block page_title %}Sodiqlik ballari{% endblock %}
+{% block page_sub %}Har xariddan ball to'plang{% endblock %}
+{% block content %}
+
+<!-- Balans kartasi -->
+<div class="card" style="margin-bottom:18px;background:linear-gradient(135deg,rgba(0,212,255,.10),rgba(124,58,237,.10));">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+    <div>
+      <div style="font-size:13px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Sizning ballaringiz</div>
+      <div style="font-size:40px;font-weight:900;line-height:1.1;color:var(--accent);">{{ ball }}</div>
+      <div style="font-size:13px;color:var(--text2);">≈ <b>{{ ball_qiymati|floatformat:0 }} so'm</b> chegirma qiymati</div>
+    </div>
+    {% if daraja %}
+    <div style="text-align:center;">
+      <div style="font-size:44px;">{{ daraja.emoji }}</div>
+      <div style="font-weight:800;font-size:15px;color:{{ daraja.rang }};">{{ daraja.nom }}</div>
+      <div style="font-size:11px;color:var(--text3);">daraja</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Qanday ishlaydi -->
+<div class="card" style="margin-bottom:18px;">
+  <div class="card-title"><i class="fas fa-circle-info" style="color:var(--accent);"></i> Qanday ishlaydi</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+    <div style="padding:12px;border-radius:10px;background:var(--bg3);">
+      <div style="font-size:22px;">🛒</div>
+      <div style="font-weight:700;margin-top:4px;">Xarid qiling</div>
+      <div style="font-size:13px;color:var(--text2);">Har <b>{{ ball_topish_narxi|floatformat:0 }} so'm</b> xarid uchun <b>1 ball</b></div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:var(--bg3);">
+      <div style="font-size:22px;">✅</div>
+      <div style="font-weight:700;margin-top:4px;">Buyurtmani oling</div>
+      <div style="font-size:13px;color:var(--text2);">Buyurtma "olib ketildi" bo'lganda ballar qo'shiladi</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:var(--bg3);">
+      <div style="font-size:22px;">🎁</div>
+      <div style="font-weight:700;margin-top:4px;">Chegirma oling</div>
+      <div style="font-size:13px;color:var(--text2);">1 ball = <b>{{ ball_qiymati_birlik }} so'm</b> chegirma</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tarix -->
+<div class="card">
+  <div class="card-title"><i class="fas fa-clock-rotate-left"></i> Ball tarixi</div>
+  {% if tarix %}
+  <div class="table-wrap">
+    <table>
+      <tr><th>Sana</th><th>Sabab</th><th>Ball</th></tr>
+      {% for t in tarix %}
+      <tr>
+        <td style="color:var(--text3);font-size:13px;">{{ t.sana|date:"d.m.Y H:i" }}</td>
+        <td>{{ t.sabab }}</td>
+        <td style="font-weight:800;color:{% if t.ball > 0 %}var(--accent3){% else %}var(--danger){% endif %};">
+          {% if t.ball > 0 %}+{% endif %}{{ t.ball }}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:50px;color:var(--text3);">
+    <i class="fas fa-gift" style="font-size:40px;opacity:0.25;margin-bottom:14px;display:block;"></i>
+    Hali ball yo'q — birinchi xaridingizni qiling!
+    <div style="margin-top:14px;"><a href="{% url 'mijoz_dashboard' %}" class="btn btn-primary btn-sm">Xaridni boshlash</a></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

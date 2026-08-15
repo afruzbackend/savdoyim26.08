@@ -1,0 +1,25 @@
+# Maxfiy sozlamalar — HECH QACHON git'ga tushmasin (SECRET_KEY, DB parol,
+# bot token, Payme/Click/MyID kalitlari shu faylda)
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Ma'lumotlar bazasi / media / statik
+db.sqlite3
+/media/
+/staticfiles/
+backups/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

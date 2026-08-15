@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% block title %}Sozlamalar{% endblock %}
+{% block page_title %}Sozlamalar{% endblock %}
+{% block page_sub %}Shaxsiy va ko'rinish sozlamalari{% endblock %}
+
+{% block extra_css %}
+<style>
+.set-section{margin-bottom:20px;}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);}
+.set-row:last-child{border-bottom:none;}
+.set-row .lbl{font-weight:600;font-size:14.5px;}
+.set-row .sub{font-size:12.5px;color:var(--text3);margin-top:2px;}
+/* Switch */
+.sw{position:relative;width:50px;height:28px;flex-shrink:0;cursor:pointer;}
+.sw input{opacity:0;width:0;height:0;position:absolute;}
+.sw .track{position:absolute;inset:0;background:var(--bg3);border:1px solid var(--border2);border-radius:999px;transition:background .25s,border-color .25s;}
+.sw .dot{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--text3);transition:transform .28s cubic-bezier(.34,1.56,.64,1),background .25s;}
+.sw input:checked + .track{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent;}
+.sw input:checked + .track + .dot{transform:translateX(22px);background:#fff;}
+/* Accent swatches */
+.acc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;margin-top:4px;}
+.acc-chip{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 8px;border:1.5px solid var(--border);border-radius:14px;cursor:pointer;background:var(--bg3);transition:border-color .2s,transform .15s,box-shadow .2s;}
+.acc-chip:hover{transform:translateY(-2px);box-shadow:var(--shadow-sm);}
+.acc-chip.active{border-color:var(--accent);box-shadow:0 0 0 3px var(--ring);}
+.acc-dot{width:30px;height:30px;border-radius:50%;box-shadow:0 3px 10px rgba(0,0,0,.25);}
+.acc-name{font-size:12px;font-weight:600;color:var(--text2);}
+.acc-chip.active .acc-name{color:var(--accent);}
+/* Mode pills */
+.mode-pills{display:inline-flex;gap:4px;padding:4px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;}
+.mode-pill{padding:8px 16px;border-radius:9px;border:none;background:transparent;color:var(--text2);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;transition:background .2s,color .2s;}
+.mode-pill.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;}
+/* Edit rows */
+.edit-field{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+.edit-field .form-group{flex:1;min-width:180px;margin-bottom:0;}
+.mini-form{margin-top:12px;padding:16px;background:var(--bg3);border:1px solid var(--border);border-radius:14px;display:none;}
+.mini-form.open{display:block;animation:fadeUp .35s cubic-bezier(.22,1,.36,1) both;}
+/* Center popup */
+.cpop{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.9);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 24px;box-shadow:var(--shadow-lg);z-index:10000;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:280px;}
+.cpop.show{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:auto;}
+.cpop i{font-size:30px;color:var(--warn);}
+.cpop .t{font-weight:700;margin-top:8px;font-size:15px;}
+.cpop .s{font-size:13px;color:var(--text2);margin-top:4px;}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ═══════ KO'RINISH (Theme) ═══════ -->
+<div class="card set-section">
+  <div class="card-title"><i class="fas fa-palette"></i> Ko'rinish</div>
+
+  <div class="set-row">
+    <div>
+      <div class="lbl">Rejim</div>
+      <div class="sub">Kunduzgi (oq) yoki tungi (to'q)</div>
+    </div>
+    <div class="mode-pills" id="modePills">
+      <button class="mode-pill" data-mode="light" onclick="pickMode('light')"><i class="fas fa-sun"></i> Kunduzgi</button>
+      <button class="mode-pill" data-mode="dark" onclick="pickMode('dark')"><i class="fas fa-moon"></i> Tungi</button>
+    </div>
+  </div>
+
+  <div class="set-row" style="flex-direction:column;align-items:stretch;">
+    <div style="margin-bottom:4px;">
+      <div class="lbl">Rang kombinatsiyasi</div>
+      <div class="sub">O'zingizga qulay rangni tanlang — butun sayt shu rangga o'tadi</div>
+    </div>
+    <div class="acc-grid" id="accGrid">
+      {% for kod, nom, hex in accent_kombolar %}
+      <div class="acc-chip" data-acc="{{ kod }}" onclick="pickAccent('{{ kod }}')">
+        <div class="acc-dot" style="background:linear-gradient(135deg,{{ hex }},{{ hex }}bb);"></div>
+        <div class="acc-name">{{ nom }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ BILDIRISHNOMA ═══════ -->
+<div class="card set-section">
+  <div class="card-title"><i class="fas fa-bell"></i> Bildirishnomalar</div>
+
+  <div class="set-row">
+    <div>
+      <div class="lbl">Sayt bildirishnomalari</div>
+      <div class="sub">Yoqilsa — yangi buyurtma, holat va boshqalar keladi</div>
+    </div>
+    <label class="sw">
+      <input type="checkbox" id="saytNotif" {% if sayt_bildirishnoma %}checked{% endif %} onchange="saveNotif()">
+      <span class="track"></span><span class="dot"></span>
+    </label>
+  </div>
+
+  {% if bot_yoq is not None %}
+  <div class="set-row">
+    <div>
+      <div class="lbl"><i class="fab fa-telegram" style="color:#29b6f6;"></i> Telegram bot hisoboti</div>
+      <div class="sub">
+        {% if bot_ulangan %}Yoqilsa — bot har kuni belgilangan vaqtda hisobot yuboradi{% else %}
+        <span style="color:var(--warn);">Avval Telegram botga /start orqali ulanish kerak</span>{% endif %}
+      </div>
+    </div>
+    <label class="sw">
+      <input type="checkbox" id="botNotif" {% if bot_yoq %}checked{% endif %} onchange="saveNotif()" {% if not bot_ulangan %}disabled{% endif %}>
+      <span class="track"></span><span class="dot"></span>
+    </label>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══════ PROFIL ═══════ -->
+<div class="card set-section">
+  <div class="card-title"><i class="fas fa-user-gear"></i> Profil</div>
+
+  <!-- Ism -->
+  <div class="set-row">
+    <div>
+      <div class="lbl">Ism</div>
+      <div class="sub" id="nameShow">{{ profil_user.first_name|default:"— kiritilmagan —" }}</div>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="toggleForm('nameForm')"><i class="fas fa-pen"></i> Tahrirlash</button>
+  </div>
+  <div class="mini-form" id="nameForm">
+    <div class="edit-field">
+      <div class="form-group"><label class="form-label">Yangi ism</label>
+        <input type="text" id="nameInp" class="form-control" value="{{ profil_user.first_name }}" placeholder="Ismingiz"></div>
+      <button class="btn btn-primary" onclick="saveName()"><i class="fas fa-check"></i> Saqlash</button>
+    </div>
+  </div>
+
+  <!-- Username (faqat ko'rish) -->
+  <div class="set-row">
+    <div><div class="lbl">Foydalanuvchi nomi (username)</div>
+      <div class="sub">{{ profil_user.username }}</div></div>
+    <span class="status status-blue"><i class="fas fa-lock"></i> o'zgarmas</span>
+  </div>
+
+  <!-- Parol -->
+  <div class="set-row">
+    <div><div class="lbl">Parol</div><div class="sub">••••••••</div></div>
+    <button class="btn btn-outline btn-sm" onclick="askPassword()"><i class="fas fa-key"></i> O'zgartirish</button>
+  </div>
+  <div class="mini-form" id="passForm">
+    <div class="form-group"><label class="form-label">Eski parol</label>
+      <input type="password" id="pEski" class="form-control" placeholder="Joriy parolingiz"></div>
+    <div class="form-group"><label class="form-label">Yangi parol</label>
+      <input type="password" id="pYangi" class="form-control" placeholder="Kamida 6 belgi"></div>
+    <div class="form-group"><label class="form-label">Yangi parol (takror)</label>
+      <input type="password" id="pYangi2" class="form-control" placeholder="Yana bir marta"></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="savePassword()"><i class="fas fa-check"></i> O'zgartirish</button>
+      <a href="{% url 'forgot_password' %}" class="btn btn-outline btn-sm">Eski parolni unutdingizmi?</a>
+    </div>
+  </div>
+
+  <!-- Telefon -->
+  <div class="set-row">
+    <div><div class="lbl">Telefon raqami</div>
+      <div class="sub">{{ profil_user.telefon|default:"— kiritilmagan —" }}</div></div>
+    <button class="btn btn-outline btn-sm" onclick="phoneSoon()"><i class="fas fa-phone"></i> O'zgartirish</button>
+  </div>
+
+  <!-- Email -->
+  <div class="set-row">
+    <div><div class="lbl">Email</div>
+      <div class="sub" id="emailShow">{{ profil_user.email|default:"— kiritilmagan —" }}</div></div>
+    <button class="btn btn-outline btn-sm" onclick="toggleForm('emailForm')"><i class="fas fa-envelope"></i> O'zgartirish</button>
+  </div>
+  <div class="mini-form" id="emailForm">
+    <div class="edit-field">
+      <div class="form-group"><label class="form-label">Yangi email</label>
+        <input type="email" id="emailInp" class="form-control" placeholder="yangi@email.com"></div>
+      <button class="btn btn-primary" id="emailCodeBtn" onclick="sendEmailCode()"><i class="fas fa-paper-plane"></i> Kod yuborish</button>
+    </div>
+    <div id="emailVerify" style="display:none;margin-top:12px;">
+      <div class="edit-field">
+        <div class="form-group"><label class="form-label">Emailga kelgan kod</label>
+          <input type="text" id="emailKod" class="form-control" placeholder="6 xonali kod" maxlength="6"></div>
+        <button class="btn btn-success" onclick="verifyEmail()"><i class="fas fa-check"></i> Tasdiqlash</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Markaziy popup -->
+<div class="cpop" id="cpop">
+  <i class="fas fa-clock-rotate-left"></i>
+  <div class="t">Hozircha ishlamaydi</div>
+  <div class="s">Bu funksiya tez orada qo'shiladi.</div>
+</div>
+
+<script>
+async function post(action, data){
+  const fd = new FormData();
+  fd.append('action', action);
+  for(const k in data) fd.append(k, data[k]);
+  const r = await fetch("{% url 'settings_action' %}", {method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken')}, body:fd});
+  return r.json();
+}
+
+/* ── Theme ── */
+function syncTheme(){
+  // Bu skript base.html ning theme-init skriptidan oldin ishga tushishi mumkin,
+  // shuning uchun atribut hali o'rnatilmagan bo'lsa — to'g'ridan-to'g'ri localStorage'dan o'qiymiz.
+  const mode = document.documentElement.getAttribute('data-theme') || localStorage.getItem('dt-theme') || 'dark';
+  const acc  = document.documentElement.getAttribute('data-accent') || localStorage.getItem('dt-accent') || 'blue';
+  document.querySelectorAll('.mode-pill').forEach(p=>p.classList.toggle('active', p.dataset.mode===mode));
+  document.querySelectorAll('.acc-chip').forEach(c=>c.classList.toggle('active', c.dataset.acc===acc));
+}
+function pickMode(m){ setMode(m); syncTheme(); }
+function pickAccent(a){ setAccent(a); syncTheme(); }
+syncTheme();
+// Sahifa to'liq yuklangach yana bir marta moslash (atribut kechroq o'rnatilsa ham to'g'ri chiqadi)
+window.addEventListener('load', syncTheme);
+
+/* ── Bildirishnoma ── */
+async function saveNotif(){
+  const sayt = document.getElementById('saytNotif').checked ? '1':'0';
+  const botEl = document.getElementById('botNotif');
+  const data = {sayt};
+  if(botEl && !botEl.disabled) data.bot = botEl.checked ? '1':'0';
+  const res = await post('notif', data);
+  showToast(res.message, res.ok?'success':'error');
+}
+
+/* ── Formalar ── */
+function toggleForm(id){
+  const f = document.getElementById(id);
+  document.querySelectorAll('.mini-form').forEach(m=>{ if(m.id!==id) m.classList.remove('open'); });
+  f.classList.toggle('open');
+}
+function askPassword(){
+  if(confirm("Parolni o'zgartirmoqchimisiz?")) toggleForm('passForm');
+}
+
+/* ── Ism ── */
+async function saveName(){
+  const v = document.getElementById('nameInp').value.trim();
+  const res = await post('name', {first_name:v});
+  showToast(res.message, res.ok?'success':'error');
+  if(res.ok){ document.getElementById('nameShow').textContent = res.value; toggleForm('nameForm'); }
+}
+
+/* ── Parol ── */
+async function savePassword(){
+  const res = await post('password', {
+    eski:document.getElementById('pEski').value,
+    yangi:document.getElementById('pYangi').value,
+    yangi2:document.getElementById('pYangi2').value,
+  });
+  showToast(res.message, res.ok?'success':'error');
+  if(res.ok){ document.getElementById('passForm').classList.remove('open'); ['pEski','pYangi','pYangi2'].forEach(i=>document.getElementById(i).value=''); }
+}
+
+/* ── Telefon (hozircha ishlamaydi + vibratsiya) ── */
+function phoneSoon(){
+  const p = document.getElementById('cpop');
+  p.classList.add('show');
+  if(navigator.vibrate) navigator.vibrate([40,30,40]);
+  setTimeout(()=>p.classList.remove('show'), 2000);
+}
+
+/* ── Email ── */
+async function sendEmailCode(){
+  const email = document.getElementById('emailInp').value.trim();
+  const btn = document.getElementById('emailCodeBtn');
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+  const res = await post('email_code', {email});
+  btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Kod yuborish';
+  showToast(res.message, res.ok?'success':'error');
+  if(res.ok) document.getElementById('emailVerify').style.display = 'block';
+}
+async function verifyEmail(){
+  const res = await post('email_verify', {kod:document.getElementById('emailKod').value.trim()});
+  showToast(res.message, res.ok?'success':'error');
+  if(res.ok){ document.getElementById('emailShow').textContent = res.value; toggleForm('emailForm'); document.getElementById('emailVerify').style.display='none'; }
+}
+</script>
+{% endblock %}

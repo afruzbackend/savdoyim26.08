@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% load savdo_extras %}
+{% block title %}Sanoq #{{ inv.id }}{% endblock %}
+{% block page_title %}Sanoq #{{ inv.id }}{% endblock %}
+{% block page_sub %}{{ inv.boshlangan|date:"d.m.Y H:i" }}{% if inv.izoh %} · {{ inv.izoh }}{% endif %}{% endblock %}
+{% block content %}
+<style>
+.inv-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
+@media(max-width:720px){ .inv-stats{ grid-template-columns:repeat(2,1fr); } }
+.inv-stat{ padding:14px 16px; border:1px solid var(--border); border-radius:14px; background:var(--bg3); }
+.inv-stat .k{ font-size:12px; color:var(--text3); display:flex; align-items:center; gap:6px; }
+.inv-stat .v{ font-size:22px; font-weight:800; margin-top:5px; color:var(--text); }
+.inv-stat.dan .v{ color:var(--danger); }
+.inv-stat.ort .v{ color:var(--warn); }
+.inv-stat.ok .v{ color:var(--accent3); }
+table.inv td, table.inv th{ vertical-align:middle; }
+.inv-real{ width:92px; text-align:center; padding:8px; border-radius:9px;
+  border:1.5px solid var(--border); background:var(--bg2); color:var(--text);
+  font-family:'Outfit',sans-serif; font-weight:700; font-size:14px; outline:none; }
+.inv-real:focus{ border-color:var(--accent); }
+.inv-real::-webkit-outer-spin-button,.inv-real::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+.inv-izoh{ width:100%; min-width:120px; padding:7px 10px; border-radius:8px;
+  border:1px solid var(--border); background:var(--bg2); color:var(--text2);
+  font-family:'Outfit',sans-serif; font-size:13px; outline:none; }
+.inv-izoh:focus{ border-color:var(--accent); }
+.farq-cell{ font-weight:800; font-size:14px; white-space:nowrap; }
+.farq-mos{ color:var(--accent3); }
+.farq-kam{ color:var(--danger); }
+.farq-ort{ color:var(--warn); }
+.farq-non{ color:var(--text3); font-weight:600; }
+.inv-actions{ position:sticky; bottom:0; display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;
+  padding:14px 0 4px; margin-top:16px; background:linear-gradient(0deg,var(--bg) 70%,transparent); }
+.inv-fill{ display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+</style>
+
+<!-- Natija ko'rsatkichlari -->
+<div class="inv-stats" id="invStats">
+  <div class="inv-stat"><div class="k"><i class="fas fa-list"></i> Sanaldi</div>
+    <div class="v"><span id="stSanaldi">{{ inv.sanalgan_soni }}</span>/{{ inv.jami_soni }}</div></div>
+  <div class="inv-stat ok"><div class="k"><i class="fas fa-equals"></i> Mos</div>
+    <div class="v" id="stMos">0</div></div>
+  <div class="inv-stat dan"><div class="k"><i class="fas fa-arrow-down"></i> Kamomad</div>
+    <div class="v"><span id="stKam">{{ inv.kamomad_soni }}</span></div></div>
+  <div class="inv-stat ort"><div class="k"><i class="fas fa-arrow-up"></i> Ortiqcha</div>
+    <div class="v"><span id="stOrt">{{ inv.ortiqcha_soni }}</span></div></div>
+</div>
+
+{% if not ochiq %}
+<div class="card" style="margin-bottom:16px;">
+  <div style="display:flex;flex-wrap:wrap;gap:18px 30px;">
+    <div><div style="font-size:12px;color:var(--text3);">Holat</div>
+      <div style="font-weight:700;color:{% if inv.holat == 'yakunlangan' %}var(--accent3){% else %}var(--text3){% endif %};">
+        {{ inv.get_holat_display }}</div></div>
+    <div><div style="font-size:12px;color:var(--text3);">Kamomad qiymati</div>
+      <div style="font-weight:700;color:var(--danger);">−{{ inv.kamomad_qiymat|floatformat:0 }} UZS</div></div>
+    <div><div style="font-size:12px;color:var(--text3);">Ortiqcha qiymati</div>
+      <div style="font-weight:700;color:var(--warn);">+{{ inv.ortiqcha_qiymat|floatformat:0 }} UZS</div></div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title"><i class="fas fa-boxes-stacked"></i> Mahsulotlar</div>
+
+  {% if ochiq %}
+  <div class="inv-fill">
+    <span style="font-size:13px;color:var(--text3);">Tez to'ldirish:</span>
+    <button type="button" class="btn btn-outline btn-sm" onclick="invHammasiTizim()">
+      <i class="fas fa-wand-magic-sparkles"></i> Barchasini tizim soni bilan
+    </button>
+    <span style="font-size:12px;color:var(--text3);">(keyin faqat farqlarni to'g'rilaysiz)</span>
+  </div>
+
+  <form method="post" action="{% url 'inventarizatsiya_saqlash' inv.id %}" id="invForm">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="invAction" value="saqla">
+    <div class="table-wrap">
+      <table class="inv">
+        <tr>
+          <th>Mahsulot</th>
+          <th style="text-align:center;">Tizimda</th>
+          <th style="text-align:center;">Real son</th>
+          <th style="text-align:center;">Farq</th>
+          <th>Izoh</th>
+        </tr>
+        {% for it in itemlar %}
+        <tr>
+          <td style="font-weight:600;">{{ it.mahsulot_nomi }}
+            <span style="color:var(--text3);font-weight:400;font-size:12px;">/ {{ it.birlik }}</span></td>
+          <td style="text-align:center;color:var(--text2);" data-tizim>{{ it.tizim_soni|son }}</td>
+          <td style="text-align:center;">
+            <input type="number" name="real_{{ it.id }}" class="inv-real" min="0"
+                   step="{% if it.kasrli %}any{% else %}1{% endif %}"
+                   value="{{ it.real_soni|default_if_none:''|son }}"
+                   data-tizim="{{ it.tizim_soni|son }}" data-kasrli="{% if it.kasrli %}1{% else %}0{% endif %}"
+                   oninput="invFarq(this)">
+          </td>
+          <td style="text-align:center;"><span class="farq-cell farq-non" data-farq>—</span></td>
+          <td><input type="text" name="izoh_{{ it.id }}" class="inv-izoh" maxlength="200"
+                     value="{{ it.izoh }}" placeholder="ixtiyoriy"></td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    <div class="inv-actions">
+      <button type="button" class="btn btn-outline btn-sm" onclick="invYubor('bekor')"
+              style="margin-right:auto;color:var(--danger);border-color:transparent;">
+        <i class="fas fa-trash-can"></i> Bekor qilish
+      </button>
+      <button type="button" class="btn btn-outline" onclick="invYubor('saqla')">
+        <i class="fas fa-floppy-disk"></i> Saqlash
+      </button>
+      <button type="button" class="btn btn-success" onclick="invYubor('yakunla')">
+        <i class="fas fa-circle-check"></i> Yakunlash va omborni tuzatish
+      </button>
+    </div>
+  </form>
+
+  {% else %}
+  <!-- Yakunlangan/bekor: faqat o'qish -->
+  <div class="table-wrap">
+    <table class="inv">
+      <tr>
+        <th>Mahsulot</th>
+        <th style="text-align:center;">Tizimda edi</th>
+        <th style="text-align:center;">Real</th>
+        <th style="text-align:center;">Farq</th>
+        <th>Izoh</th>
+      </tr>
+      {% for it in itemlar %}
+      <tr>
+        <td style="font-weight:600;">{{ it.mahsulot_nomi }}
+          <span style="color:var(--text3);font-weight:400;font-size:12px;">/ {{ it.birlik }}</span></td>
+        <td style="text-align:center;color:var(--text2);">{{ it.tizim_soni|son }}</td>
+        <td style="text-align:center;font-weight:700;">{% if it.real_soni != None %}{{ it.real_soni|son }}{% else %}—{% endif %}</td>
+        <td style="text-align:center;">
+          {% if it.holat == 'mos' %}<span class="farq-cell farq-mos">0</span>
+          {% elif it.holat == 'kamomad' %}<span class="farq-cell farq-kam">{{ it.farq|son }}</span>
+          {% elif it.holat == 'ortiqcha' %}<span class="farq-cell farq-ort">+{{ it.farq|son }}</span>
+          {% else %}<span class="farq-cell farq-non">sanalmagan</span>{% endif %}
+        </td>
+        <td style="color:var(--text3);font-size:13px;">{{ it.izoh|default:"—" }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  <div style="margin-top:16px;">
+    <a href="{% url 'inventarizatsiya_royxat' %}" class="btn btn-outline">
+      <i class="fas fa-arrow-left"></i> Ro'yxatga qaytish
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+{% if ochiq %}
+<script>
+function invRound(v){ return Math.round(v * 1000) / 1000; }
+function invFarq(inp){
+  const cell = inp.closest('tr').querySelector('[data-farq]');
+  const tizim = parseFloat(inp.dataset.tizim) || 0;
+  const raw = inp.value.trim();
+  cell.className = 'farq-cell';
+  if(raw === ''){ cell.classList.add('farq-non'); cell.textContent = '—'; invHisob(); return; }
+  const real = Math.max(0, parseFloat(raw) || 0);
+  const f = invRound(real - tizim);
+  if(f === 0){ cell.classList.add('farq-mos'); cell.textContent = '0'; }
+  else if(f < 0){ cell.classList.add('farq-kam'); cell.textContent = f; }
+  else { cell.classList.add('farq-ort'); cell.textContent = '+' + f; }
+  invHisob();
+}
+function invHisob(){
+  let sanaldi=0, mos=0, kam=0, ort=0;
+  document.querySelectorAll('#invForm input.inv-real').forEach(inp => {
+    const raw = inp.value.trim();
+    if(raw === '') return;
+    sanaldi++;
+    const f = invRound((Math.max(0, parseFloat(raw)||0)) - (parseFloat(inp.dataset.tizim)||0));
+    if(f === 0) mos++; else if(f < 0) kam++; else ort++;
+  });
+  document.getElementById('stSanaldi').textContent = sanaldi;
+  document.getElementById('stMos').textContent = mos;
+  document.getElementById('stKam').textContent = kam;
+  document.getElementById('stOrt').textContent = ort;
+}
+function invHammasiTizim(){
+  document.querySelectorAll('#invForm input.inv-real').forEach(inp => {
+    if(inp.value.trim() === ''){ inp.value = inp.dataset.tizim; invFarq(inp); }
+  });
+}
+function invYubor(action){
+  if(action === 'yakunla'){
+    if(!confirm("Yakunlashni tasdiqlaysizmi?\n\nSanagan mahsulotlaringiz ombori real songa TUZATILADI. Bu amalni ortga qaytarib bo'lmaydi.")) return;
+  }
+  if(action === 'bekor'){
+    if(!confirm("Sanoqni bekor qilasizmi? Ombor o'zgarmaydi, kiritilgan sonlar o'chadi.")) return;
+  }
+  document.getElementById('invAction').value = action;
+  document.getElementById('invForm').submit();
+}
+// Sahifa ochilganda mavjud qiymatlar bo'yicha farq va hisobни chizamiz
+document.querySelectorAll('#invForm input.inv-real').forEach(invFarq);
+</script>
+{% endif %}
+{% endblock %}

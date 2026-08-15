@@ -1,0 +1,452 @@
+{% extends 'base.html' %}
+{% load savdo_extras %}
+{% load l10n %}
+{% block title %}Hisobotlar{% endblock %}
+{% block page_title %}Hisobotlar{% endblock %}
+{% block page_sub %}Savdo statistikasi{% endblock %}
+
+{% block extra_css %}
+<style>
+.tab-bar{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;}
+.cal-grid{display:grid;gap:4px;}
+.cal-cell{border-radius:6px;cursor:default;transition:transform 0.15s;position:relative;}
+.cal-cell:hover{transform:scale(1.15);z-index:2;}
+.cal-cell .tip{display:none;position:absolute;bottom:110%;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;white-space:nowrap;z-index:10;pointer-events:none;color:var(--text);box-shadow:0 4px 14px rgba(0,0,0,0.2);}
+.cal-cell:hover .tip{display:block;}
+.c-green{background:#10b981;}
+.c-yellow{background:#f59e0b;}
+.c-red{background:#ef4444;}
+.c-gray{background:var(--border);}
+.month-label{font-size:11px;color:var(--text3);text-align:center;margin-bottom:4px;}
+.day-label{font-size:10px;color:var(--text3);text-align:center;}
+.legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);}
+.leg-dot{width:12px;height:12px;border-radius:3px;}
+
+/* ── AI yordamchisi ── */
+.ai-card{border:1px solid var(--border);}
+.ai-badge{width:30px;height:30px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--accent),var(--accent3));color:#fff;font-size:14px;flex:0 0 auto;}
+.ai-hint{margin-left:auto;font-size:11px;font-weight:600;color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 14%,transparent);padding:3px 10px;border-radius:999px;}
+.ai-javob{margin-top:14px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;
+  background:var(--bg2);font-size:13.5px;line-height:1.6;white-space:pre-wrap;color:var(--text);}
+.ai-javob.error{border-color:var(--danger);color:var(--danger);background:transparent;white-space:normal;}
+.ai-chat{margin-top:16px;border-top:1px dashed var(--border);padding-top:14px;}
+.ai-chat-oqim{display:flex;flex-direction:column;gap:10px;margin-bottom:12px;}
+.ai-chat-oqim:empty{margin-bottom:0;}
+.ai-msg{max-width:86%;padding:10px 13px;border-radius:14px;font-size:13.5px;line-height:1.55;white-space:pre-wrap;}
+.ai-msg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px;}
+.ai-msg.bot{align-self:flex-start;background:var(--bg2);border:1px solid var(--border);border-bottom-left-radius:4px;color:var(--text);}
+.ai-msg.bot.error{border-color:var(--danger);color:var(--danger);}
+.ai-chat-form{display:flex;gap:8px;}
+.ai-chat-form .form-control{flex:1;}
+.ai-typing{font-size:12px;color:var(--text3);font-style:italic;align-self:flex-start;}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="tab-bar">
+  <a href="?davr=kunlik" class="btn {% if davr == 'kunlik' %}btn-primary{% else %}btn-outline{% endif %} btn-sm"><i class="fas fa-calendar-day"></i> Kunlik</a>
+  <a href="?davr=haftalik" class="btn {% if davr == 'haftalik' %}btn-primary{% else %}btn-outline{% endif %} btn-sm"><i class="fas fa-calendar-week"></i> Haftalik</a>
+  <a href="?davr=oylik" class="btn {% if davr == 'oylik' %}btn-primary{% else %}btn-outline{% endif %} btn-sm"><i class="fas fa-calendar-alt"></i> Oylik</a>
+  <a href="?davr=yillik" class="btn {% if davr == 'yillik' %}btn-primary{% else %}btn-outline{% endif %} btn-sm"><i class="fas fa-chart-column"></i> Yillik</a>
+
+  <span style="flex:1;"></span>
+
+  <a href="{% url 'hisobot_export' 'pdf' %}?davr={{ davr }}" class="btn btn-outline btn-sm" title="PDF yuklab olish">
+    <i class="fas fa-file-pdf" style="color:#ef4444;"></i> PDF
+  </a>
+  <a href="{% url 'hisobot_export' 'excel' %}?davr={{ davr }}" class="btn btn-outline btn-sm" title="Excel yuklab olish">
+    <i class="fas fa-file-excel" style="color:#10b981;"></i> Excel
+  </a>
+</div>
+
+<div class="stats-grid" style="margin-bottom:20px;">
+  <div class="stat-card blue">
+    <div class="stat-label">Jami Savdo</div>
+    <div class="stat-value">{{ jami_savdo|floatformat:0 }}</div>
+    <div class="stat-sub">UZS</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-label">Cheklar Soni</div>
+    <div class="stat-value">{{ jami_son }}</div>
+    <div class="stat-sub">ta savdo</div>
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-label">Kassa Balansi</div>
+    <div class="stat-value">{{ kassa.balans|floatformat:0 }}</div>
+    <div class="stat-sub">UZS</div>
+  </div>
+</div>
+
+<!-- ═══════ AI HISOBOT YORDAMCHISI ═══════ -->
+<div class="card ai-card" style="margin-bottom:20px;">
+  <div class="card-title" style="display:flex;align-items:center;gap:8px;">
+    <span class="ai-badge"><i class="fas fa-robot"></i></span>
+    AI hisobot yordamchisi
+    <span class="ai-hint">faqat shu hisobot bo'yicha</span>
+  </div>
+
+  {% if ai_yoqmi %}
+  <p style="font-size:13px;color:var(--text2);margin:2px 0 14px;">
+    Natijalar <b>nega</b> shunday ekanini tushuntiradi va <b>qanday tuzatish</b>ni
+    aytadi. Chatga faqat shu hisobot haqida savol bering (masalan:
+    <i>«foyda nega kam?»</i>, <i>«qaysi mahsulotni ko'proq olay?»</i>).
+  </p>
+
+  <button type="button" id="ai-tahlil-btn" class="btn btn-primary btn-sm">
+    <i class="fas fa-wand-magic-sparkles"></i> Hisobotni tahlil qilish
+  </button>
+
+  <div id="ai-javob" class="ai-javob" hidden></div>
+
+  <!-- Chat -->
+  <div class="ai-chat">
+    <div id="ai-chat-oqim" class="ai-chat-oqim"></div>
+    <form id="ai-chat-form" class="ai-chat-form" autocomplete="off">
+      <input type="text" id="ai-savol" class="form-control" maxlength="500"
+             placeholder="Hisobot bo'yicha savolingiz…">
+      <button type="submit" class="btn btn-primary btn-sm" title="Yuborish">
+        <i class="fas fa-paper-plane"></i>
+      </button>
+    </form>
+  </div>
+  {% else %}
+  <p style="font-size:13px;color:var(--text2);margin:6px 0 0;">
+    <i class="fas fa-circle-info"></i> AI hozircha sozlanmagan.
+    Yoqish uchun <code>.env</code> fayliga <code>TOKENROUTER_API_KEY</code> qo'shing.
+  </p>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title"><i class="fas fa-chart-bar"></i>
+    {% if davr == 'kunlik' %}Bugungi Savdo
+    {% elif davr == 'haftalik' %}Haftalik Ko'rinish
+    {% elif davr == 'oylik' %}Oylik Ko'rinish
+    {% else %}Yillik Ko'rinish
+    {% endif %}
+  </div>
+
+  {% if davr == 'yillik' %}
+  <!-- Legend yillik uchun -->
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:var(--accent3);"></div> 20–30+ mln</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--warn);"></div> 9–20 mln</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--danger);"></div> 0–9 mln</div>
+    <div class="leg-item"><div class="leg-dot c-gray"></div> Savdo yo'q</div>
+  </div>
+  {% else %}
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot c-green"></div> 1 000 000+ so'm</div>
+    <div class="leg-item"><div class="leg-dot c-yellow"></div> 300 000 – 1 000 000</div>
+    <div class="leg-item"><div class="leg-dot c-red"></div> 300 000 dan kam</div>
+    <div class="leg-item"><div class="leg-dot c-gray"></div> Savdo yo'q</div>
+  </div>
+  {% endif %}
+
+  {% if davr == 'kunlik' %}
+  <!-- Kunlik savdo summasiga qarab rang (#14) -->
+  <div style="margin-bottom:14px;">
+    <span class="status {% if jami_savdo >= 85000 %}status-green{% elif jami_savdo >= 60000 %}status-warn{% else %}status-red{% endif %}" style="font-size:15px;padding:9px 18px;font-weight:700;">
+      <i class="fas fa-coins"></i> Bugungi savdo: {{ jami_savdo|floatformat:0 }} so'm
+    </span>
+  </div>
+  <div style="margin-bottom:8px;font-size:12px;color:var(--text2);">Bugun — soat bo'yicha:</div>
+  <div class="cal-grid" style="grid-template-columns:repeat(12,1fr);">
+    {% for soat in soat_data %}
+    <div>
+      <div class="day-label">{{ soat.soat }}:00</div>
+      <div class="cal-cell {% if soat.summa >= 85000 %}c-green{% elif soat.summa >= 30000 %}c-yellow{% elif soat.summa > 0 %}c-red{% else %}c-gray{% endif %}" style="height:40px;">
+        <div class="tip">{{ soat.soat }}:00 — {{ soat.summa|floatformat:0 }} so'm</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% elif davr == 'haftalik' %}
+  <div class="cal-grid" style="grid-template-columns:repeat(7,1fr);gap:8px;">
+    {% for kun in kun_data %}
+    <div>
+      <div class="month-label">{{ kun.nom }}</div>
+      <div class="cal-cell {% if kun.summa >= 1000000 %}c-green{% elif kun.summa >= 300000 %}c-yellow{% elif kun.summa > 0 %}c-red{% else %}c-gray{% endif %}" style="height:60px;border-radius:10px;">
+        <div class="tip">{{ kun.sana }} — {{ kun.summa|floatformat:0 }} so'm</div>
+      </div>
+      <div style="text-align:center;font-size:11px;color:var(--text2);margin-top:4px;">
+        {% if kun.summa > 0 %}{{ kun.summa|floatformat:0 }}{% else %}—{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% elif davr == 'oylik' %}
+  <div class="cal-grid" style="grid-template-columns:repeat(7,1fr);gap:4px;">
+    {% for kun in kun_data %}
+    <div>
+      <div class="day-label">{{ kun.kun }}</div>
+      <div class="cal-cell {% if kun.summa >= 1000000 %}c-green{% elif kun.summa >= 300000 %}c-yellow{% elif kun.summa > 0 %}c-red{% else %}c-gray{% endif %}" style="height:36px;">
+        <div class="tip">{{ kun.sana }} — {{ kun.summa|floatformat:0 }} so'm</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <!-- YILLIK TRADING BAR CHART — chap Y-o'qi (0/10/20/30 mln) + pastda oylar -->
+  <div class="tchart">
+    <div class="tc-yaxis">
+      <span>30 mln</span><span>20 mln</span><span>10 mln</span><span>0</span>
+    </div>
+    <div class="tc-plot">
+      <div class="tc-grid">
+        <i style="top:0;"></i><i style="top:33.3%;"></i><i style="top:66.6%;"></i><i class="base" style="bottom:0;"></i>
+      </div>
+      <div class="tc-bars">
+        {% for oy in oy_data %}
+        <div class="tc-col">
+          <div class="tc-tip">{{ oy.nom }} · {{ oy.summa|floatformat:0 }} so'm</div>
+          <div class="tc-bar {% if oy.summa >= 20000000 %}g{% elif oy.summa >= 9000000 %}y{% elif oy.summa > 0 %}r{% else %}z{% endif %}"
+               style="height:{% if oy.summa > 0 %}{{ oy.foiz|unlocalize }}{% else %}0{% endif %}%;"></div>
+          <div class="tc-month">{{ oy.nom }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title"><i class="fas fa-trophy"></i> Eng Ko'p Sotilgan</div>
+    {% if eng_sotilgan %}
+    <div class="table-wrap">
+      <table>
+        <tr><th>#</th><th>Mahsulot</th><th>Soni</th><th>Summa</th></tr>
+        {% for m in eng_sotilgan %}
+        <tr>
+          <td style="color:var(--text3);">{{ forloop.counter }}</td>
+          <td style="font-weight:600;">{{ m.mahsulot_nomi }}</td>
+          <td><span class="status status-blue">{{ m.jami_soni }} ta</span></td>
+          <td style="color:var(--accent3);font-weight:600;">{{ m.jami_summa|floatformat:0 }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:40px;color:var(--text3);">Savdo yo'q</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-title"><i class="fas fa-receipt"></i> So'nggi Cheklar</div>
+    {% if cheklar %}
+    <div class="table-wrap">
+      <table>
+        <tr><th>#</th><th>Sotuvchi</th><th>Sana</th><th>Jami</th><th>Tur</th></tr>
+        {% for c in cheklar %}
+        <tr>
+          <td style="color:var(--text3);">#{{ c.id }}</td>
+          <td style="font-size:12px;">
+            {% if c.sotuvchi %}{{ c.sotuvchi.first_name|default:c.sotuvchi.username }}{% else %}<span style="color:var(--text3);">Mavjud emas</span>{% endif %}
+          </td>
+          <td style="color:var(--text2);font-size:12px;">{{ c.yaratilgan|date:"d.m H:i" }}</td>
+          <td style="font-weight:700;color:var(--accent);">{{ c.jami|floatformat:0 }}</td>
+          <td>
+            {% if c.tolash_turi == 'naqd' %}<span class="status status-green">💵 Naqd</span>
+            {% elif c.tolash_turi == 'karta' %}<span class="status status-blue">💳 Karta</span>
+            {% else %}<span class="status status-warn">📋 Qarz</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:40px;color:var(--text3);">Cheklar yo'q</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═══════ O'LIK TOVAR TAHLILI ═══════ -->
+<div class="card" style="margin-top:20px;">
+  <div class="card-title" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+    <i class="fas fa-box-archive" style="color:var(--warn);"></i> O'lik tovar (30 kunda sotilmagan)
+    {% if olik_jami_qiymat %}
+    <span style="margin-left:auto;font-size:12.5px;color:var(--text3);">
+      Bog'langan pul: <b style="color:var(--warn);">{{ olik_jami_qiymat|floatformat:0 }} UZS</b>
+    </span>
+    {% endif %}
+  </div>
+  <p style="font-size:12.5px;color:var(--text3);margin:0 0 12px;">
+    Bu tovarlar omborda turibdi, lekin oxirgi 30 kunda sotilmadi — pulingizni bog'lab qo'yyapti.
+    Chegirma, aksiya yoki keyingi xaridda kamaytirishni o'ylang.
+  </p>
+  {% if olik %}
+  <div class="table-wrap">
+    <table>
+      <tr><th>Mahsulot</th><th style="text-align:center;">Ombor</th><th>Oxirgi sotuv</th><th style="text-align:right;">Bog'langan pul</th></tr>
+      {% for t in olik %}
+      <tr>
+        <td style="font-weight:600;"><a href="{% url 'mahsulot_detail' t.id %}" style="color:inherit;text-decoration:none;">{{ t.nomi }}</a></td>
+        <td style="text-align:center;">{{ t.soni|son }} {{ t.birlik }}</td>
+        <td style="font-size:13px;">
+          {% if t.hech_sotilmagan %}
+            <span class="status status-red">Hech sotilmagan</span>
+          {% else %}
+            <span style="color:var(--text3);">{{ t.oxirgi_sotuv|date:"d.m.Y" }}</span>
+          {% endif %}
+        </td>
+        <td style="text-align:right;font-weight:600;color:var(--warn);">{{ t.qiymat|floatformat:0 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:34px;color:var(--text3);">
+    <i class="fas fa-circle-check" style="font-size:26px;color:var(--accent3);opacity:.8;"></i>
+    <div style="margin-top:8px;">Zo'r! Barcha tovarlar sotilmoqda — o'lik tovar yo'q.</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══════ AVTOMATIK TELEGRAM HISOBOT SOZLAMASI ═══════ -->
+{% if avto %}
+<div class="card" style="margin-top:20px;">
+  <div class="card-title"><i class="fab fa-telegram" style="color:#29b6f6;"></i> Avtomatik Telegram hisobot</div>
+  <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">
+    Har kuni belgilangan vaqtda hisobot Telegram botga avtomatik yuboriladi.
+    (Buning uchun botga bir marta <b>/start</b> orqali kirgan bo'lishingiz kerak.)
+  </p>
+  <form method="post" action="{% url 'avto_hisobot_saqlash' %}">
+    {% csrf_token %}
+    <div class="grid-2">
+      <div style="padding:14px;border:1px solid var(--border);border-radius:12px;">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:10px;cursor:pointer;">
+          <input type="checkbox" name="kunlik_yoq" {% if avto.kunlik_yoq %}checked{% endif %}>
+          📊 Kunlik savdo hisoboti
+        </label>
+        <label class="form-label">Yuborish vaqti</label>
+        <input type="time" name="kunlik_vaqt" class="form-control" value="{{ avto.kunlik_vaqt|time:'H:i' }}">
+        <div style="font-size:11.5px;color:var(--text3);margin-top:6px;">Odatda ish kuni oxirida (masalan 21:00)</div>
+      </div>
+      <div style="padding:14px;border:1px solid var(--border);border-radius:12px;">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:10px;cursor:pointer;">
+          <input type="checkbox" name="ombor_yoq" {% if avto.ombor_yoq %}checked{% endif %}>
+          📦 Ombor prognozi (ertalab)
+        </label>
+        <label class="form-label">Yuborish vaqti</label>
+        <input type="time" name="ombor_vaqt" class="form-control" value="{{ avto.ombor_vaqt|time:'H:i' }}">
+        <div style="font-size:11.5px;color:var(--text3);margin-top:6px;">Tugayotgan mahsulotlar (masalan 08:00)</div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top:14px;">
+      <i class="fas fa-save"></i> Saqlash
+    </button>
+  </form>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+{% if ai_yoqmi %}
+<script>
+(function () {
+  const DAVR = "{{ davr|escapejs }}";
+  const URL_TAHLIL = "{% url 'ai_tahlil' %}";
+  const URL_CHAT   = "{% url 'ai_chat' %}";
+
+  function csrf() {
+    const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : "";
+  }
+
+  // ── Avtomatik tahlil ──
+  const tBtn = document.getElementById("ai-tahlil-btn");
+  const tBox = document.getElementById("ai-javob");
+  tBtn.addEventListener("click", async function () {
+    tBtn.disabled = true;
+    const eski = tBtn.innerHTML;
+    tBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Tahlil qilinmoqda…';
+    tBox.hidden = false;
+    tBox.className = "ai-javob";
+    tBox.textContent = "AI hisobotni o'qiyapti…";
+    try {
+      const r = await fetch(URL_TAHLIL + "?davr=" + encodeURIComponent(DAVR), {
+        method: "POST",
+        headers: { "X-CSRFToken": csrf() },
+      });
+      const d = await r.json();
+      if (d.ok) {
+        tBox.className = "ai-javob";
+        tBox.textContent = d.matn;
+      } else {
+        tBox.className = "ai-javob error";
+        tBox.textContent = d.xato || "Xatolik yuz berdi.";
+      }
+    } catch (e) {
+      tBox.className = "ai-javob error";
+      tBox.textContent = "Ulanishda xatolik. Qayta urinib ko'ring.";
+    } finally {
+      tBtn.disabled = false;
+      tBtn.innerHTML = eski;
+    }
+  });
+
+  // ── Chat ──
+  const form = document.getElementById("ai-chat-form");
+  const inp  = document.getElementById("ai-savol");
+  const oqim = document.getElementById("ai-chat-oqim");
+
+  function msg(text, kind) {
+    const el = document.createElement("div");
+    el.className = "ai-msg " + kind;
+    el.textContent = text;
+    oqim.appendChild(el);
+    oqim.scrollTop = oqim.scrollHeight;
+    return el;
+  }
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const savol = inp.value.trim();
+    if (!savol) return;
+    msg(savol, "user");
+    inp.value = "";
+    inp.disabled = true;
+
+    const kutish = document.createElement("div");
+    kutish.className = "ai-typing";
+    kutish.textContent = "AI yozmoqda…";
+    oqim.appendChild(kutish);
+    oqim.scrollTop = oqim.scrollHeight;
+
+    try {
+      const r = await fetch(URL_CHAT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+        body: JSON.stringify({ savol: savol, davr: DAVR }),
+      });
+      const d = await r.json();
+      kutish.remove();
+      if (d.ok) {
+        msg(d.matn, "bot");
+      } else {
+        msg(d.xato || "Xatolik yuz berdi.", "bot error");
+      }
+    } catch (e) {
+      kutish.remove();
+      msg("Ulanishda xatolik. Qayta urinib ko'ring.", "bot error");
+    } finally {
+      inp.disabled = false;
+      inp.focus();
+    }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

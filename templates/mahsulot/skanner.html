@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block title %}Barkod Skaneri{% endblock %}
+{% block page_title %}Barkod Skaneri{% endblock %}
+{% block page_sub %}Kirim / Chiqim{% endblock %}
+{% block content %}
+<div class="grid-2">
+  <div>
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-title"><i class="fas fa-camera"></i> Kamera
+        <span id="camStat" class="status status-warn" style="margin-left:auto;">O'chiq</span>
+      </div>
+      <div style="background:#000;border-radius:10px;overflow:hidden;aspect-ratio:4/3;position:relative;">
+        <video id="vid" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+        <div id="scanLine" style="display:none;position:absolute;left:0;right:0;height:2px;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:scan 2s ease-in-out infinite;"></div>
+      </div>
+      <style>@keyframes scan{0%,100%{top:20%}50%{top:80%}}</style>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button onclick="camOn()" class="btn btn-primary btn-sm" id="camBtn"><i class="fas fa-camera"></i> Kamera Ochish</button>
+        <button onclick="camOff()" class="btn btn-outline btn-sm" id="stopBtn" style="display:none;"><i class="fas fa-stop"></i> To'xtatish</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="fas fa-keyboard"></i> Qo'lda Kiritish</div>
+      <div class="form-group">
+        <label class="form-label">Barkod</label>
+        <input type="text" id="bInp" class="form-control" placeholder="Barkodni skanerlang..." autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Soni</label>
+        <input type="number" id="sonInp" class="form-control" value="1" min="1">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="amal('kirim')" class="btn btn-success"><i class="fas fa-arrow-down"></i> Kirim</button>
+        <button onclick="amal('chiqim')" class="btn btn-danger"><i class="fas fa-arrow-up"></i> Chiqim</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"><i class="fas fa-list"></i> So'nggi Operatsiyalar</div>
+    <div id="logList">
+      <div style="text-align:center;padding:60px;color:var(--text3);">
+        <i class="fas fa-barcode" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3;"></i>
+        Skanerlash boshlang
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ZXing: barcha brauzerlarda ishlaydigan barkod o'qigich (#20) -->
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+let stream=null, sc=false, logs=[], zxingReader=null;
+document.getElementById('bInp').addEventListener('keydown',e=>{if(e.key==='Enter')amal('chiqim');});
+
+function _camUI(on){
+  document.getElementById('scanLine').style.display = on ? 'block' : 'none';
+  document.getElementById('camStat').className = 'status ' + (on ? 'status-green' : 'status-warn');
+  document.getElementById('camStat').textContent = on ? 'Faol' : "O'chiq";
+  document.getElementById('camBtn').style.display = on ? 'none' : '';
+  document.getElementById('stopBtn').style.display = on ? '' : 'none';
+}
+
+function onDetected(code){
+  if(!code) return;
+  document.getElementById('bInp').value = code;
+  camOff();
+  showToast('Barkod topildi: ' + code, 'success');
+}
+
+async function camOn(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    showToast("Kamera faqat HTTPS yoki localhost manzilida ishlaydi.", 'error');
+    return;
+  }
+  // 1) ZXing — Chrome, Firefox, Edge, noutbuk kamerasida ham ishlaydi
+  if(window.ZXing && ZXing.BrowserMultiFormatReader){
+    try{
+      zxingReader = new ZXing.BrowserMultiFormatReader();
+      sc = true; _camUI(true);
+      await zxingReader.decodeFromVideoDevice(null, 'vid', (result) => {
+        if(result) onDetected(result.getText());
+      });
+      return;
+    }catch(err){
+      camOff();
+      showToast('Kamera ochilmadi. Brauzer sozlamalaridan kameraga ruxsat bering.', 'error');
+      return;
+    }
+  }
+  // 2) BarcodeDetector — zaxira variant
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    document.getElementById('vid').srcObject = stream;
+    sc = true; _camUI(true);
+    if('BarcodeDetector' in window) skanLoop();
+    else showToast("Avtomatik o'qish qo'llab-quvvatlanmaydi. Barkodni qo'lda kiriting.", 'info');
+  }catch(err){
+    let msg = 'Kamera ochilmadi.';
+    if(err && err.name === 'NotAllowedError') msg = 'Kamera ruxsati berilmadi.';
+    else if(err && err.name === 'NotFoundError') msg = 'Kamera topilmadi (noutbuk kamerasini tekshiring).';
+    showToast(msg, 'error');
+  }
+}
+
+function camOff(){
+  sc = false;
+  try{ if(zxingReader){ zxingReader.reset(); zxingReader = null; } }catch(e){}
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
+  const v = document.getElementById('vid'); if(v) v.srcObject = null;
+  _camUI(false);
+}
+
+async function skanLoop(){
+  if(!sc) return;
+  const v = document.getElementById('vid');
+  if(v.readyState === v.HAVE_ENOUGH_DATA && 'BarcodeDetector' in window){
+    const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d').drawImage(v,0,0);
+    try{
+      const bd = new BarcodeDetector();
+      const bs = await bd.detect(c);
+      if(bs.length){ onDetected(bs[0].rawValue); return; }
+    }catch(e){}
+  }
+  setTimeout(skanLoop, 300);
+}
+async function amal(h){
+  const b=document.getElementById('bInp').value.trim();
+  const s=parseInt(document.getElementById('sonInp').value)||1;
+  if(!b){showToast('Barkod kiriting!','error');return;}
+  const res=await apiPost('/product/mahsulot/skanner/action/',{barkod:b,harakat:h,soni:s});
+  if(res.status==='ok'){
+    showToast(`${res.mahsulot}: ${h==='kirim'?'+':'-'}${s} | Qoldi: ${res.yangi_son}`,'success');
+    if(res.kam_qoldi)showToast(`⚠️ ${res.mahsulot} kam qoldi!`,'error');
+    logs.unshift({nomi:res.mahsulot,h,s,q:res.yangi_son,v:new Date().toLocaleTimeString()});
+    renderLog();
+    document.getElementById('bInp').value='';
+    document.getElementById('bInp').focus();
+  }else showToast(res.error||'Xatolik!','error');
+}
+function renderLog(){
+  document.getElementById('logList').innerHTML=logs.slice(0,20).map(l=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="width:36px;height:36px;border-radius:8px;background:${l.h==='kirim'?'rgba(16,185,129,0.15)':'rgba(239,68,68,0.15)'};display:flex;align-items:center;justify-content:center;">
+        <i class="fas fa-arrow-${l.h==='kirim'?'down':'up'}" style="color:${l.h==='kirim'?'var(--accent3)':'var(--danger)'};"></i>
+      </div>
+      <div style="flex:1;">
+        <div style="font-weight:600;font-size:14px;">${l.nomi}</div>
+        <div style="font-size:11px;color:var(--text3);">${l.v} | Qoldi: ${l.q}</div>
+      </div>
+      <div style="font-weight:700;color:${l.h==='kirim'?'var(--accent3)':'var(--danger)'};">${l.h==='kirim'?'+':'-'}${l.s}</div>
+    </div>
+  `).join('');
+}
+</script>
+{% endblock %}

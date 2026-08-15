@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Sotuvchi Dashboard{% endblock %}
+{% block page_title %}Sotuvchi Panel{% endblock %}
+{% block page_sub %}{{ profil.dokon.dokon_nomi|default:"Dokon tanlanmagan" }}{% endblock %}
+{% block content %}
+<div class="stats-grid">
+  <div class="stat-card blue">
+    <div class="stat-label"><i class="fas fa-cash-register"></i> Kassa</div>
+    <div class="stat-value">{{ kassa.balans|default:"0"|floatformat:0 }}</div>
+    <div class="stat-sub">UZS</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-label"><i class="fas fa-boxes"></i> Mahsulotlar</div>
+    <div class="stat-value">{{ mahsulotlar|length }}</div>
+    <div class="stat-sub">Tur</div>
+  </div>
+  <div class="stat-card warn">
+    <div class="stat-label"><i class="fas fa-file-invoice-dollar"></i> Qarzlar</div>
+    <div class="stat-value">{{ qarzlar|length }}</div>
+    <div class="stat-sub">To'lanmagan</div>
+  </div>
+</div>
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title"><i class="fas fa-bolt"></i> Tezkor Harakatlar</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <a href="/checkout/kassa/" class="btn btn-primary" style="justify-content:flex-start;"><i class="fas fa-cash-register"></i> Kassani Ochish</a>
+      <a href="/product/mahsulot/" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-boxes"></i> Mahsulotlar</a>
+      <a href="/checkout/kassa/qarzlar/" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-file-invoice-dollar"></i> Qarz Daftar</a>
+      <a href="/product/mahsulot/skanner/" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-barcode"></i> Barkod Skaneri</a>
+      <a href=" /chat/chat/" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-comments"></i> Chat</a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"><i class="fas fa-exclamation-triangle"></i> Kam Qolgan Mahsulotlar</div>
+    {% for m in mahsulotlar %}{% if m.kam_qoldi %}
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:14px;">{{ m.nomi }}</span>
+      <span style="color:var(--danger);font-weight:700;">{{ m.soni }} {{ m.birlik }}</span>
+    </div>
+    {% endif %}{% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -35,7 +35,7 @@
       <tr>
         <th>Mijoz</th>
         <th>Telefon</th>
-        <th>Summa</th>
+        <th>Qolgan qarz</th>
         <th>Sana va Vaqt</th>
         <th>Qaytarish sanasi</th>
         <th>Holat</th>
@@ -45,7 +45,23 @@
       <tr>
         <td style="font-weight:600;">{{ q.mijoz_ism }}</td>
         <td>{{ q.mijoz_telefon|default:"—" }}</td>
-        <td style="color:var(--warn);font-weight:700;">{{ q.summa|floatformat:0 }} UZS</td>
+        <td>
+          {% if q.to_langan %}
+            <span style="font-weight:700;color:var(--accent3);">0 UZS</span>
+          {% else %}
+            <span style="color:var(--warn);font-weight:700;">{{ q.summa|floatformat:0 }} UZS</span>
+          {% endif %}
+          {% if q.tolangan_summa %}
+          <div style="font-size:11.5px;color:var(--text3);margin-top:2px;">
+            Jami {{ q.jami_qarz|floatformat:0 }} · to'langan {{ q.tolangan_summa|floatformat:0 }}
+            {% with q.tolovlar.all as tl %}{% if tl %}
+            <details style="margin-top:2px;"><summary style="cursor:pointer;">{{ tl|length }} ta to'lov</summary>
+              {% for t in tl %}<div>{{ t.sana|date:"d.m H:i" }} — {{ t.summa|floatformat:0 }} ({{ t.get_tolov_turi_display }})</div>{% endfor %}
+            </details>
+            {% endif %}{% endwith %}
+          </div>
+          {% endif %}
+        </td>
         <td style="color:var(--text3);font-size:13px;">
           {{ q.yaratilgan|date:"d.m.Y" }}
           <span style="color:var(--accent);font-weight:600;">{{ q.yaratilgan|date:"H:i" }}</span>
@@ -64,6 +80,8 @@
         <td>
           {% if q.to_langan %}
             <span class="status status-green"><i class="fas fa-check"></i> To'langan</span>
+          {% elif q.tolangan_summa %}
+            <span class="status" style="background:rgba(245,158,11,.14);color:var(--warn);"><i class="fas fa-circle-half-stroke"></i> Qisman</span>
           {% else %}
             <span class="status status-red"><i class="fas fa-clock"></i> Kutilmoqda</span>
           {% endif %}
@@ -71,8 +89,14 @@
         <td>
           {% if not q.to_langan %}
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button onclick="tolash({{ q.id }},this)" class="btn btn-success btn-sm">
-              <i class="fas fa-check"></i> To'landi
+            <input type="number" id="tolSumma{{ q.id }}" class="form-control" min="1" max="{{ q.summa|floatformat:0 }}"
+                   inputmode="numeric" placeholder="{{ q.summa|floatformat:0 }}" title="Bo'sh qoldirsangiz — hammasi to'lanadi"
+                   style="width:120px;padding:6px 10px;font-size:13px;">
+            <select id="tolTur{{ q.id }}" class="form-control" style="width:auto;padding:6px 8px;font-size:13px;">
+              <option value="naqd">Naqd</option><option value="karta">Karta</option>
+            </select>
+            <button onclick="tolash({{ q.id }},this)" class="btn btn-success btn-sm" title="Summa bo'sh bo'lsa — qolgan qarz to'liq to'lanadi">
+              <i class="fas fa-check"></i> To'lash
             </button>
             {% if q.mijoz_telefon %}
             <button onclick="eslatma('{{ q.mijoz_telefon|escapejs }}','{{ q.mijoz_ism|escapejs }}',{{ q.summa|floatformat:0 }})" class="btn btn-outline btn-sm" title="SMS eslatma">
@@ -110,19 +134,26 @@ function eslatma(tel, ism, summa){
   if (navigator.clipboard) navigator.clipboard.writeText(matn).then(()=>showToast('Eslatma matni nusxalandi','info')).catch(()=>{});
 }
 async function tolash(id, btn) {
+  const summa = (document.getElementById('tolSumma' + id).value || '').trim();
+  const tur = document.getElementById('tolTur' + id).value;
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div>';
-  const res = await fetch(`/checkout/kassa/qarz/${id}/tolash/`, {
-    method: 'POST',
-    headers: { 'X-CSRFToken': getCookie('csrftoken') }
-  }).then(r => r.json());
+  let res = {};
+  try {
+    res = await fetch(`/checkout/kassa/qarz/${id}/tolash/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json' },
+      body: JSON.stringify({summa: summa, tolov_turi: tur})
+    }).then(r => r.json());
+  } catch(e) { res = {error: "Tarmoq xatosi"}; }
   if (res.status === 'ok') {
-    showToast("Qarz to'landi!", 'success');
-    setTimeout(() => location.reload(), 800);
+    const s = n => Number(n).toLocaleString('ru-RU').replace(/,/g,' ');
+    showToast(res.yopildi ? "Qarz to'liq yopildi!" : `${s(res.tolandi)} so'm qabul qilindi. Qolgan: ${s(res.qolgan)} so'm`, 'success');
+    setTimeout(() => location.reload(), 900);
   } else {
-    showToast('Xatolik!', 'error');
+    showToast(res.error || 'Xatolik!', 'error');
     btn.disabled = false;
-    btn.innerHTML = "<i class='fas fa-check'></i> To'landi";
+    btn.innerHTML = "<i class='fas fa-check'></i> To'lash";
   }
 }
 </script>

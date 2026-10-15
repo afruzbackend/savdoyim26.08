@@ -1,7 +1,7 @@
 from decimal import Decimal
 from django.db import models
 from django.db.models import Q
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator
 from users.models import DokonEgasiProfil, ZavodProfil, CustomUser
 from users.soft_delete import SoftDeleteModel
 from users.validators import rasm_kengaytma, fayl_hajmi
@@ -60,6 +60,10 @@ class Mahsulot(models.Model):
         null=True, blank=True, related_name='mahsulotlar'
     )
     barkod = models.CharField(max_length=50, blank=True, null=True, db_index=True)
+    # IKPU (MXIK) — Soliq qo'mitasi tovar/xizmat klassifikatori kodi (tasnif.soliq.uz), 17 raqam.
+    # Onlayn kassa / virtual kassa orqali fiskal chek berish uchun majburiy.
+    ikpu = models.CharField('IKPU (MXIK) kodi', max_length=17, blank=True, default='',
+                            validators=[RegexValidator(r'^\d{17}$', "IKPU kodi 17 ta raqamdan iborat bo'lishi kerak")])
     narx = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     sotib_olish_narxi = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     # Ombor soni — kasrli (kg/litr uchun 0.750 kabi). dona uchun butun ishlatiladi.

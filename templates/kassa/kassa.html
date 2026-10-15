@@ -155,7 +155,7 @@ function smenaYopishToggle(){
     <div style="display:flex;gap:8px;align-items:stretch;">
       <div class="s-inp" style="flex:1;">
         <i class="fas fa-search s-ico"></i>
-        <input type="text" id="searchInput" class="form-control" placeholder="Mahsulot qidirish..."
+        <input type="text" id="searchInput" class="form-control" placeholder="Qidirish yoki barkod skanerlang..."
                autocomplete="off" inputmode="none">
       </div>
       <button type="button" class="btn btn-primary" id="kameraBtn" onclick="kameraOch()"
@@ -202,7 +202,7 @@ function smenaYopishToggle(){
         </form>
       </div>
 
-      <div class="chek-items">
+      <div class="chek-items" id="cartItems">
         {% for item in cart_items %}
         <div class="ci">
           <div class="ci-name">{{ item.product.nomi }}</div>
@@ -227,7 +227,7 @@ function smenaYopishToggle(){
       </div>
 
       <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">
-        <div class="sum-row"><span style="color:var(--text2);">Jami:</span><span>{{ cart_total|floatformat:0 }} UZS</span></div>
+        <div class="sum-row"><span style="color:var(--text2);">Jami:</span><span id="cartJami">{{ cart_total|floatformat:0 }} UZS</span></div>
       </div>
     </div>
 
@@ -298,7 +298,7 @@ function smenaYopishToggle(){
 
       <div class="sum-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">
         <span style="font-weight:700;">To'lash:</span>
-        <span class="sum-big">{{ cart_total|floatformat:0 }} UZS</span>
+        <span class="sum-big" id="cartTolash">{{ cart_total|floatformat:0 }} UZS</span>
       </div>
 
       <button type="submit" class="btn btn-primary"
@@ -355,16 +355,7 @@ function sonYoz(pid, hozir, birlik, kasrli){
   if(v === null) return;
   const n = kasrli ? parseFloat(String(v).replace(',', '.')) : parseInt(v, 10);
   if(isNaN(n) || n < 0){ showToast("Noto'g'ri miqdor kiritildi", 'error'); return; }
-  const tok = document.querySelector('input[name=csrfmiddlewaretoken]');
-  const f = document.createElement('form');
-  f.method = 'post'; f.action = "{% url 'kassa_savat' %}";
-  f.innerHTML =
-    '<input type="hidden" name="csrfmiddlewaretoken" value="' + (tok ? tok.value : '') + '">' +
-    '<input type="hidden" name="action" value="set">' +
-    '<input type="hidden" name="product_id" value="' + pid + '">' +
-    '<input type="hidden" name="soni" value="' + n + '">';
-  document.body.appendChild(f);
-  f.submit();
+  savatAmal('set', pid, n);
 }
 
 // To'lov turi o'zgartirish
@@ -385,7 +376,7 @@ document.getElementById('searchInput').addEventListener('input', function() {
 });
 
 // "Berilgan pul" IXTIYORIY — kiritilsa qaytim jonli ko'rsatiladi (majburiy emas).
-const CART_TOTAL = {{ cart_total|floatformat:0 }};
+let CART_TOTAL = {{ cart_total|floatformat:0 }};
 function qaytimHisob(){
   const inp = document.getElementById('berilganInput');
   const kor = document.getElementById('qaytimKor');
@@ -412,6 +403,111 @@ document.querySelectorAll('.form-control').forEach(inp => {
 // Search inputi uchun alohida
 const si = document.getElementById('searchInput');
 si.removeAttribute('readonly');
+</script>
+
+<script>
+/* ═══════ AJAX SAVAT — sahifa qayta yuklanmaydi ═══════ */
+const SAVAT_URL = "{% url 'kassa_savat' %}";
+const SKAN_URL = "{% url 'kassa_skan' %}";
+const pul = n => Math.round(Number(n) || 0).toLocaleString('ru-RU').replace(/,/g, ' ');
+
+function renderCart(d){
+  if(!d || !d.items) return;
+  const box = document.getElementById('cartItems');
+  if(!d.items.length){
+    box.innerHTML = '<div class="empty-chek"><i class="fas fa-shopping-basket"></i>Mahsulot tanlang</div>';
+  } else {
+    box.innerHTML = d.items.map(it => `
+      <div class="ci" data-id="${Number(it.id)}">
+        <div class="ci-name">${escHtml(it.nomi)}</div>
+        <div class="qty-form">
+          <button type="button" class="qty-btn" onclick="savatAmal('dec', ${Number(it.id)})">-</button>
+          <span class="qty-num" title="Bosib son/og'irlik yozing" style="cursor:pointer;text-decoration:underline dotted;"
+                onclick="sonYoz(${Number(it.id)}, ${escHtml(JSON.stringify(String(it.qty)))}, ${escHtml(JSON.stringify(it.birlik))}, ${it.kasrli ? 'true' : 'false'})">${escHtml(it.qty)}${it.kasrli ? ' <span style="font-size:10px;color:var(--text3);">' + escHtml(it.birlik) + '</span>' : ''}</span>
+          <button type="button" class="qty-btn" onclick="savatAmal('inc', ${Number(it.id)})">+</button>
+        </div>
+        <div class="ci-price">${pul(it.subtotal)}</div>
+        <button type="button" class="ci-del" onclick="savatAmal('del', ${Number(it.id)})"><i class="fas fa-times"></i></button>
+      </div>`).join('');
+  }
+  CART_TOTAL = Math.round(d.total || 0);
+  document.getElementById('cartJami').textContent = pul(d.total) + ' UZS';
+  document.getElementById('cartTolash').textContent = pul(d.total) + ' UZS';
+  if(typeof qaytimHisob === 'function') qaytimHisob();
+  (d.xabarlar || []).forEach(x => showToast(x.matn, (x.tur === 'error' || x.tur === 'warning') ? 'error' : 'info'));
+}
+
+async function savatAmal(action, pid, soni){
+  const fd = new FormData();
+  fd.set('action', action);
+  if(pid != null) fd.set('product_id', pid);
+  if(soni != null) fd.set('soni', soni);
+  try{
+    const r = await fetch(SAVAT_URL, {method:'POST', body:fd, credentials:'same-origin',
+      headers:{'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With':'XMLHttpRequest'}});
+    renderCart(await r.json());
+  }catch(e){ showToast("Tarmoq xatosi — qayta urinib ko'ring", 'error'); }
+}
+
+// Eski formalar (mahsulot kartochkasi, "Tozalash") — AJAX'ga o'tkaziladi; JS o'chiq bo'lsa oddiy ishlaydi
+document.addEventListener('submit', function(e){
+  const f = e.target;
+  // Diqqat: formada name="action" maydoni bor, shuning uchun f.action emas, atribut o'qiladi
+  const manzil = (f.getAttribute && f.getAttribute('action')) || '';
+  if(!manzil.includes(SAVAT_URL)) return;
+  e.preventDefault();
+  const fd = new FormData(f);
+  if(e.submitter && e.submitter.name) fd.set(e.submitter.name, e.submitter.value);
+  savatAmal(fd.get('action'), fd.get('product_id'), fd.get('soni'));
+}, true);
+
+/* ═══════ USB / Bluetooth BARKOD SKANER ═══════
+   Skaner klaviatura kabi ishlaydi: belgilarni juda tez (≈<35ms oraliq) yozib, oxirida Enter bosadi.
+   Tez kelgan ketma-ketlik + Enter = barkod. Odam yozganda (sekin) — oddiy klaviatura. */
+const skanUSB = {buf:'', last:0, el:null, elVal:''};
+document.addEventListener('keydown', function(e){
+  if(e.ctrlKey || e.altKey || e.metaKey) return;
+  const now = Date.now();
+  const tez = (now - skanUSB.last) < 35;
+  if(e.key === 'Enter'){
+    const kod = skanUSB.buf;
+    const qidiruvda = document.activeElement && document.activeElement.id === 'searchInput';
+    // Skanerdan kelgan (tez) yoki qidiruv maydoniga yozilgan barkod (6+ raqam)
+    const barkodmi = (kod.length >= 4 && tez) ||
+                     (qidiruvda && /^\d{6,}$/.test(document.activeElement.value.trim()));
+    if(barkodmi){
+      e.preventDefault();
+      const yakuniy = (kod.length >= 4 && tez) ? kod : document.activeElement.value.trim();
+      // Skaner yozib qo'ygan belgilarni maydondan qaytarib olamiz
+      if(skanUSB.el && 'value' in skanUSB.el) skanUSB.el.value = skanUSB.elVal;
+      if(qidiruvda){ document.activeElement.value = ''; document.activeElement.dispatchEvent(new Event('input')); }
+      usbBarkod(yakuniy);
+    }
+    skanUSB.buf = ''; skanUSB.last = 0;
+    return;
+  }
+  if(e.key.length !== 1) return;
+  if(!tez || !skanUSB.buf){
+    skanUSB.buf = '';
+    skanUSB.el = document.activeElement;
+    skanUSB.elVal = (skanUSB.el && 'value' in skanUSB.el) ? skanUSB.el.value : '';
+  }
+  skanUSB.buf += e.key;
+  skanUSB.last = now;
+}, true);
+
+async function usbBarkod(kod){
+  try{
+    const r = await fetch(SKAN_URL, {method:'POST', credentials:'same-origin',
+      headers:{'X-CSRFToken': getCookie('csrftoken'), 'Content-Type':'application/json'},
+      body: JSON.stringify({barkod: kod})}).then(x => x.json());
+    if(r.error){ showToast(r.error, 'error'); return; }
+    if(r.cart) renderCart(r.cart);
+    if(typeof bip === 'function') bip();
+    if(r.qoshildi) showToast(`✅ ${r.nomi} — savatda: ${r.savatda}`, 'success');
+    else showToast(`⚠️ ${r.nomi}: omborda qolmagan`, 'error');
+  }catch(e){ showToast("Skaner: tarmoq xatosi", 'error'); }
+}
 </script>
 
 <!-- ═══════ KAMERA BARKOD SKANERI ═══════ -->
@@ -532,6 +628,7 @@ function onBarkod(kod){
       return;
     }
     const narx = Math.round(r.narx).toLocaleString('ru-RU').replace(/,/g,' ');
+    if(r.cart) renderCart(r.cart);
     if(r.qoshildi){
       skanCount++;
       setStatus(`✅ Qo'shildi — jami ${skanCount} ta skan`);
@@ -550,7 +647,7 @@ function kameraYop(){
   try{ if(skanReader){ skanReader.reset(); skanReader = null; } }catch(e){}
   try{ if(skanStream){ skanStream.getTracks().forEach(t => t.stop()); skanStream = null; } }catch(e){}
   document.getElementById('skanModal').style.display = 'none';
-  if(skanCount > 0) location.reload();  // savatdagi yangi mahsulotlarni ko'rsatish
+  // Savat har skanda AJAX bilan yangilanadi — sahifani qayta yuklash shart emas
 }
 </script>
 {% endblock %}

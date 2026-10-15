@@ -29,7 +29,7 @@ class MahsulotSerializer(serializers.ModelSerializer):
     class Meta:
         model = Mahsulot
         fields = [
-            'id', 'nomi', 'barkod', 'narx', 'sotib_olish_narxi',
+            'id', 'nomi', 'barkod', 'ikpu', 'narx', 'sotib_olish_narxi',
             'soni', 'minimum_son', 'birlik', 'faol', 'kam_qoldi',
             'yaroqlilik_muddati', 'rasm', 'tavsif',
         ]
@@ -67,7 +67,7 @@ class QarzDaftarSerializer(serializers.ModelSerializer):
     class Meta:
         model = QarzDaftar
         fields = [
-            'id', 'mijoz_ism', 'mijoz_telefon', 'summa',
+            'id', 'mijoz_ism', 'mijoz_telefon', 'summa', 'tolangan_summa', 'jami_qarz',
             'to_langan', 'to_langan_sana', 'qaytarish_sana', 'yaratilgan',
         ]
 
@@ -75,7 +75,7 @@ class QarzDaftarSerializer(serializers.ModelSerializer):
 class SavdoChekMahsulotSerializer(serializers.ModelSerializer):
     class Meta:
         model = SavdoChekMahsulot
-        fields = ['mahsulot_nomi', 'soni', 'narx', 'jami']
+        fields = ['mahsulot_nomi', 'ikpu', 'soni', 'narx', 'jami']
 
 
 class SavdoChekSerializer(serializers.ModelSerializer):

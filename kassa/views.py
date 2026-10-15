@@ -441,51 +441,90 @@ def smena_yopish(request):
     return render(request, 'kassa/smena_natija.html', {'natija': natija})
 
 
+def _cart_json(dokon, cart, xabarlar=None):
+    """Savat holati JSON ko'rinishida (AJAX kassa va skaner uchun)."""
+    items, total = _cart_items(dokon, cart)
+    return {
+        'ok': True,
+        'items': [{
+            'id': it['product'].id,
+            'nomi': it['product'].nomi,
+            'qty': _son(it['qty']),
+            'birlik': it['product'].birlik,
+            'kasrli': it['product'].kasrli,
+            'narx': float(it['product'].narx),
+            'subtotal': float(it['subtotal']),
+            'qoldi': _son(it['product'].soni),
+        } for it in items],
+        'total': float(total),
+        'count': len(items),
+        'xabarlar': xabarlar or [],
+    }
+
+
+def _ajaxmi(request):
+    return (request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            or 'application/json' in (request.headers.get('Accept') or ''))
+
+
 @login_required
 @require_POST
 def savat_action(request):
+    """Savat amallari: add | inc | dec | del | set | clear.
+    AJAX (X-Requested-With) bo'lsa — savat holatini JSON qaytaradi (sahifa qayta
+    yuklanmaydi); oddiy forma bo'lsa — kassa sahifasiga qaytaradi (JS'siz zaxira)."""
     dokon = _get_dokon(request.user)
+    ajax = _ajaxmi(request)
     if not dokon:
-        return redirect('login')
+        return JsonResponse({'ok': False, 'error': "Ruxsat yo'q"}, status=403) if ajax else redirect('login')
+    xabarlar = []
+
+    def xabar(tur, matn):
+        if ajax:
+            xabarlar.append({'tur': tur, 'matn': matn})
+        else:
+            getattr(messages, tur)(request, matn)
+
+    def tamom(cart, status=200):
+        if ajax:
+            return JsonResponse(_cart_json(dokon, cart, xabarlar), status=status)
+        return redirect('kassa')
+
     cart = _get_cart(request, dokon)
     action = request.POST.get('action')
     product_id = request.POST.get('product_id')
     if action == 'clear':
         _save_cart(request, dokon, {})
-        return redirect('kassa')
+        return tamom({})
     if not product_id:
-        return redirect('kassa')
+        return tamom(cart)
     try:
         product = Mahsulot.objects.get(id=product_id, dokon=dokon, faol=True)
-    except Mahsulot.DoesNotExist:
-        return redirect('kassa')
+    except (Mahsulot.DoesNotExist, ValueError):
+        xabar('error', "Mahsulot topilmadi")
+        return tamom(cart, 404)
     # Smena ochiq bo'lmasa — sotib bo'lmaydi
-    if action in ['add', 'inc'] and not _ochiq_smena(dokon):
-        messages.error(request, "Smena yopiq. Sotishni boshlash uchun avval smenani oching.")
-        return redirect('kassa')
+    if action in ['add', 'inc', 'set'] and not _ochiq_smena(dokon):
+        xabar('error', "Smena yopiq. Sotishni boshlash uchun avval smenani oching.")
+        return tamom(cart, 400)
 
     # Yaroqlilik muddati o'tgan mahsulotni savatga qo'shib bo'lmaydi
-    if action in ['add', 'inc'] and product.muddati_otgan:
-        messages.error(request, f"{product.nomi}: yaroqlilik muddati tugagan — sotib bo'lmaydi!")
-        return redirect('kassa')
+    if action in ['add', 'inc', 'set'] and product.muddati_otgan:
+        xabar('error', f"{product.nomi}: yaroqlilik muddati tugagan — sotib bo'lmaydi!")
+        return tamom(cart, 400)
 
     current = _miqdor(cart.get(str(product.id), '0'), product.birlik)
-    # Bosishda qo'shiladigan qadam: dona uchun 1, kg/litr uchun ham 1 (aniq
-    # og'irlikни "son yozish" (set) orqali kiritiladi, masalan 0.75).
+    # Bosishda qo'shiladigan qadam: 1 (aniq og'irlik "son yozish" (set) orqali, masalan 0.75)
     qadam = Decimal('1')
     if action in ['add', 'inc']:
         if current < product.soni:
             cart[str(product.id)] = min(current + qadam, product.soni)
+        elif product.soni <= 0:
+            xabar('warning', f"⚠️ {product.nomi}: omborda qolmagan!")
         else:
-            # Ombordagi soni tugagan — ko'proq qo'shib bo'lmaydi (#6)
-            if product.soni <= 0:
-                messages.warning(request, f"⚠️ {product.nomi}: omborda qolmagan!")
-            else:
-                messages.warning(
-                    request,
-                    f"⚠️ {product.nomi}: omborda faqat {_son(product.soni)} {product.birlik} bor — "
-                    f"hammasi savatда, ko'proq qo'shib bo'lmaydi."
-                )
+            xabar('warning',
+                  f"⚠️ {product.nomi}: omborda faqat {_son(product.soni)} {product.birlik} bor — "
+                  f"hammasi savatda, ko'proq qo'shib bo'lmaydi.")
     elif action == 'dec':
         yangi = current - qadam
         if yangi <= 0:
@@ -496,12 +535,6 @@ def savat_action(request):
         cart.pop(str(product.id), None)
     elif action == 'set':
         # Karobka/tarozi: bir yo'la N dona yoki N.NN kg qo'yish
-        if not _ochiq_smena(dokon):
-            messages.error(request, "Smena yopiq. Avval smenani oching.")
-            return redirect('kassa')
-        if product.muddati_otgan:
-            messages.error(request, f"{product.nomi}: yaroqlilik muddati tugagan!")
-            return redirect('kassa')
         try:
             yangi = _miqdor(request.POST.get('soni', '1'), product.birlik, default='1')
         except ValueError:
@@ -510,15 +543,13 @@ def savat_action(request):
             cart.pop(str(product.id), None)
         elif yangi > product.soni:
             cart[str(product.id)] = product.soni
-            messages.warning(
-                request,
-                f"⚠️ {product.nomi}: omborda faqat {_son(product.soni)} {product.birlik} bor — "
-                f"shuncha qo'shildi."
-            )
+            xabar('warning',
+                  f"⚠️ {product.nomi}: omborda faqat {_son(product.soni)} {product.birlik} bor — "
+                  f"shuncha qo'shildi.")
         else:
             cart[str(product.id)] = yangi
     _save_cart(request, dokon, cart)
-    return redirect('kassa')
+    return tamom(_get_cart(request, dokon))
 
 
 @login_required
@@ -574,6 +605,7 @@ def kassa_skan(request):
         'qoshildi': qoshildi,           # False -> ombordagi soni tugagan
         'cart_total': float(total),
         'cart_count': len(cart),
+        'cart': _cart_json(dokon, cart),
     })
 
 
@@ -775,7 +807,8 @@ def qarz_royxat(request):
     dokon = _get_dokon(request.user)
     if not dokon:
         return redirect('login')
-    qarzlar = QarzDaftar.objects.filter(dokon=dokon).order_by('-yaratilgan')
+    qarzlar = (QarzDaftar.objects.filter(dokon=dokon)
+               .prefetch_related('tolovlar').order_by('to_langan', '-yaratilgan'))
     from .hisobot_service import qarz_eslatma
     eslatma = qarz_eslatma(dokon)
     return render(request, 'kassa/qarzlar.html', {
@@ -837,12 +870,28 @@ def qarz_tolash(request, qarz_id):
     dokon = _get_dokon(request.user)
     if not dokon:
         return JsonResponse({'error': "Ruxsat yo'q"}, status=403)
-    from .savdo_service import qarz_tolash_yadro
-    if qarz_tolash_yadro(dokon, qarz_id):
-        from users.services import AuditService
-        AuditService.log(request.user, 'qarz_tolandi', None, f"qarz #{qarz_id}", request)
-        return JsonResponse({'status': 'ok'})
-    return JsonResponse({'error': "Topilmadi yoki allaqachon to'langan"}, status=404)
+    """Qarzga to'lov: summa bo'lmasa — qolgan qarzning hammasi, bo'lsa — qisman.
+    POST (form yoki JSON): summa, tolov_turi (naqd|karta)."""
+    from .savdo_service import qarz_tolash_yadro, SavdoXato
+    data = request.POST
+    if _is_json_request(request):
+        try:
+            data = json.loads(request.body or '{}')
+        except (ValueError, TypeError):
+            data = {}
+    summa = (str(data.get('summa') or '')).replace(' ', '').replace(',', '.') or None
+    try:
+        tolov = qarz_tolash_yadro(dokon, qarz_id, summa=summa,
+                                  tolov_turi=data.get('tolov_turi', 'naqd'), qabul_qildi=request.user)
+    except SavdoXato as e:
+        return JsonResponse({'error': e.message}, status=e.code)
+    if not tolov:
+        return JsonResponse({'error': "Topilmadi yoki allaqachon to'langan"}, status=404)
+    from users.services import AuditService
+    AuditService.log(request.user, 'qarz_tolandi', tolov.qarz, f"{tolov.summa} {tolov.tolov_turi}", request)
+    q = tolov.qarz
+    return JsonResponse({'status': 'ok', 'tolandi': float(tolov.summa), 'qolgan': float(q.summa),
+                         'tolangan_jami': float(q.tolangan_summa), 'yopildi': q.to_langan})
 
 
 @login_required

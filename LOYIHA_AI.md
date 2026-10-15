@@ -273,6 +273,15 @@ har doim `naqd` (kelajakда tanlov qo'shish mumkin).
 - Media: faqat rasm kengaytmalari ochiq; rasm bo'lmagan yuklama saqlanmaydi; zavod hujjatlari faqat staff.
 - Pasport/JSHSHR endi so'ralmaydi. Testlar: `users/tests_xavfsizlik.py`.
 
+**🧾 MVP funksiyalari (2026-10-16):**
+- `Mahsulot.ikpu` (17 raqam, `mahsulot.views._ikpu_tozala`) → sotuvda `SavdoChekMahsulot.ikpu` ga nusxalanadi; import ustuni `ikpu`.
+- Qarz: `QarzDaftar.summa` = QOLGAN qarz, `tolangan_summa` = to'langan, `jami_qarz` = ikkalasi.
+  Har to'lov `QarzTolov` (naqd/karta). `savdo_service.qarz_tolash_yadro(dokon, id, summa=None, tolov_turi)`
+  qisman/to'liq. Verka faqat `QarzTolov(tolov_turi='naqd')` ni qo'shadi.
+- Kassa savati AJAX: `savat_action` `X-Requested-With` bo'lsa `_cart_json` qaytaradi; `kassa_skan` ham `cart` beradi.
+  USB/BT skaner — `kassa.html` dagi keydown tinglovchi (tez belgilar + Enter = barkod).
+- Chek: `chek.html` `.termal` bloki 58/80 mm (@page, localStorage `chek_en`), `?print=1` avtomatik chop.
+
 Yaxshi tomonlari (buzmang): kassa sotuvi, refund, smena va qarz to'lash oqimlari
 **atomik va poyga-himoyali** yozilgan (`UniqueConstraint`, `F()`, atomik `update`).
 

@@ -37,10 +37,25 @@
   .btn-p { background:#3b6ef0; color:#fff; }
   .btn-o { background:#eef2f8; color:#334155; border:1px solid #d1daf0; }
   .foot { text-align:center; font-size:11px; color:#94a3b8; padding:0 20px 18px; }
+  .olcham { display:flex; gap:6px; justify-content:center; padding:0 20px 12px; font-size:12.5px; color:#475569; align-items:center; }
+  .olcham button { border:1px solid #d1daf0; background:#fff; border-radius:8px; padding:5px 12px; cursor:pointer; font-family:inherit; }
+  .olcham button.on { background:#3b6ef0; color:#fff; border-color:#3b6ef0; }
+
+  /* ── Termal printer cheki (58/80 mm) — faqat chop etishda ko'rinadi ── */
+  .termal { display:none; }
   @media print {
-    body { background:#fff; padding:0; }
-    .chek { box-shadow:none; max-width:100%; }
-    .actions { display:none; }
+    body { background:#fff; padding:0; display:block; min-height:0; }
+    .chek { display:none; }
+    .termal { display:block; width:var(--chek-en, 72mm); margin:0 auto; color:#000;
+              font-family:'Courier New',monospace; font-size:var(--chek-shrift, 12px); line-height:1.3; }
+    .termal .m { text-align:center; }
+    .termal .b { font-weight:700; }
+    .termal .katta { font-size:1.35em; }
+    .termal .chiz { border-top:1px dashed #000; margin:4px 0; }
+    .termal .q { display:flex; justify-content:space-between; gap:6px; }
+    .termal .q span:last-child { white-space:nowrap; }
+    .termal .ikpu { font-size:.85em; }
+    .termal img { width:28mm; height:28mm; display:block; margin:4px auto; }
   }
 </style>
 </head>
@@ -91,6 +106,12 @@
     <div class="soliq">Bu FISKAL CHEK EMAS. Rasmiy soliq cheki do'konning onlayn kassasidan beriladi.</div>
   </div>
 
+  <div class="olcham">
+    Printer eni:
+    <button type="button" data-en="58" onclick="chekEn(58)">58 mm</button>
+    <button type="button" data-en="80" onclick="chekEn(80)">80 mm</button>
+  </div>
+
   <div class="actions">
     <button class="btn btn-p" onclick="window.print()">🖨 Chop etish</button>
     <a class="btn btn-o" href="/checkout/kassa/">Yangi savdo</a>
@@ -98,5 +119,51 @@
 
   <div class="foot">© 2026 Savdoyim · raqamli chek</div>
 </div>
+
+<!-- ═══ Termal chek (58/80 mm) — chop etish uchun ═══ -->
+<div class="termal">
+  <div class="m b katta">{{ chek.dokon.dokon_nomi|default:"Do'kon" }}</div>
+  {% if chek.dokon.manzil %}<div class="m">{{ chek.dokon.manzil }}</div>{% endif %}
+  {% if chek.dokon.soliq_raqami %}<div class="m">STIR: {{ chek.dokon.soliq_raqami }}</div>{% endif %}
+  <div class="chiz"></div>
+  <div class="q"><span>Chek #{{ chek.id }}</span><span>{{ chek.yaratilgan|date:"d.m.Y H:i" }}</span></div>
+  {% if chek.sotuvchi %}<div>Kassir: {{ chek.sotuvchi.first_name|default:chek.sotuvchi.username }}</div>{% endif %}
+  <div class="chiz"></div>
+  {% for item in items %}
+  <div>{{ item.mahsulot_nomi }}</div>
+  {% if item.ikpu %}<div class="ikpu">IKPU: {{ item.ikpu }}</div>{% endif %}
+  <div class="q"><span>{{ item.soni|son }}{% if item.mahsulot and item.mahsulot.kasrli %} {{ item.mahsulot.birlik }}{% endif %} x {{ item.narx|floatformat:0 }}</span><span>{{ item.jami|floatformat:0 }}</span></div>
+  {% endfor %}
+  <div class="chiz"></div>
+  {% if chek.chegirma %}<div class="q"><span>Chegirma</span><span>-{{ chek.chegirma|floatformat:0 }}</span></div>{% endif %}
+  <div class="q b katta"><span>JAMI</span><span>{{ chek.jami|floatformat:0 }} so'm</span></div>
+  <div class="q"><span>To'lov</span><span>{{ chek.get_tolash_turi_display }}</span></div>
+  {% if chek.qaytim %}<div class="q"><span>Qaytim</span><span>{{ chek.qaytim|floatformat:0 }}</span></div>{% endif %}
+  {% if chek.qaytarilgan_summa %}<div class="q"><span>Qaytarilgan</span><span>-{{ chek.qaytarilgan_summa|floatformat:0 }}</span></div>{% endif %}
+  <div class="chiz"></div>
+  {% if qr %}<img src="{{ qr }}" alt="QR">{% endif %}
+  <div class="m b">FISKAL CHEK EMAS</div>
+  <div class="m">Rasmiy soliq cheki onlayn kassadan beriladi</div>
+  <div class="m">Xaridingiz uchun rahmat!</div>
+</div>
+
+<script>
+// Printer eni (58/80 mm) — qurilmada eslab qolinadi
+function chekEn(en){
+  en = (en === 58) ? 58 : 80;
+  try { localStorage.setItem('chek_en', en); } catch(e) {}
+  let st = document.getElementById('chekPage');
+  if(!st){ st = document.createElement('style'); st.id = 'chekPage'; document.head.appendChild(st); }
+  // Qog'oz eni 58 mm -> chop maydoni ~48 mm; 80 mm -> ~72 mm
+  st.textContent = '@page{size:' + en + 'mm auto;margin:2mm 3mm;} :root{--chek-en:' + (en === 58 ? '48mm' : '72mm') +
+                   ';--chek-shrift:' + (en === 58 ? '10.5px' : '12px') + ';}';
+  document.querySelectorAll('.olcham button').forEach(b => b.classList.toggle('on', Number(b.dataset.en) === en));
+}
+let _en = 80;
+try { _en = Number(localStorage.getItem('chek_en')) || 80; } catch(e) {}
+chekEn(_en);
+// ?print=1 bo'lsa darhol chop etish oynasi (kassadan avtomatik chop uchun)
+if (new URLSearchParams(location.search).get('print') === '1') window.addEventListener('load', () => setTimeout(() => window.print(), 300));
+</script>
 </body>
 </html>

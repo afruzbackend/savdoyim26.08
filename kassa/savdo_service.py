@@ -8,7 +8,7 @@ from django.db.models import F, Sum
 from django.utils import timezone
 
 from mahsulot.models import Mahsulot
-from .models import SavdoChek, SavdoChekMahsulot, Kassa, QarzDaftar, Smena, Qaytarish
+from .models import SavdoChek, SavdoChekMahsulot, Kassa, QarzDaftar, QarzTolov, Smena, Qaytarish
 
 KASRLI_BIRLIKLAR = ('kg', 'litr', 'gramm', 'metr')
 
@@ -109,9 +109,9 @@ def smena_yop(dokon, real_naqd=None):
         ).aggregate(s=Sum('summa'))['s'] or Decimal('0')
         # Smena davomida to'langan qarzlar ham kassa yashigiga naqd tushadi deb
         # hisoblanadi (qarz odatda naqd qaytariladi) — aks holda soxta "ortiqcha" chiqadi.
-        qarz_naqd = QarzDaftar.objects.filter(
-            dokon=dokon, to_langan=True,
-            to_langan_sana__gte=smena.ochilgan, to_langan_sana__lt=smena.yopilgan,
+        qarz_naqd = QarzTolov.objects.filter(
+            dokon=dokon, tolov_turi='naqd',
+            sana__gte=smena.ochilgan, sana__lt=smena.yopilgan,
         ).aggregate(s=Sum('summa'))['s'] or Decimal('0')
         kutilgan = ((smena.boshlangich_naqd or Decimal('0'))
                     + (data['naqd'] or Decimal('0')) + qarz_naqd - naqd_qaytarilgan)
@@ -137,19 +137,45 @@ def chek_topish(dokon, q):
         return None
 
 
-def qarz_tolash_yadro(dokon, qarz_id):
-    """Qarzni 'to'landi' qiladi va kassaga summani qo'shadi (atomik, idempotent).
-    Qaytaradi: True (to'landi) yoki False (topilmadi/allaqachon to'langan)."""
+def qarz_tolash_yadro(dokon, qarz_id, summa=None, tolov_turi='naqd', qabul_qildi=None):
+    """Qarzga to'lov qabul qiladi — QISMAN yoki TO'LIQ (summa=None -> qolganning hammasi).
+
+    Atomik va qulf ostida: qolgan qarz kamayadi, tolangan_summa oshadi, QarzTolov yoziladi,
+    kassa balansi oshadi. Qolgan 0 bo'lsa qarz yopiladi (to_langan=True).
+    Qaytaradi: QarzTolov yoki None (qarz topilmadi / allaqachon to'langan).
+    Noto'g'ri summa bo'lsa SavdoXato."""
+    if tolov_turi not in ('naqd', 'karta'):
+        tolov_turi = 'naqd'
     with transaction.atomic():
-        yangilandi = QarzDaftar.objects.filter(
-            id=qarz_id, dokon=dokon, to_langan=False
-        ).update(to_langan=True, to_langan_sana=timezone.now())
-        if not yangilandi:
-            return False
-        qarz = QarzDaftar.objects.get(id=qarz_id, dokon=dokon)
+        qarz = (QarzDaftar.objects.select_for_update()
+                .filter(id=qarz_id, dokon=dokon, to_langan=False).first())
+        if not qarz:
+            return None
+        qolgan = qarz.summa or Decimal('0')
+        if summa is None:
+            summa = qolgan
+        try:
+            summa = Decimal(str(summa)).quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError, TypeError):
+            raise SavdoXato("Summa noto'g'ri", 400)
+        if summa <= 0:
+            raise SavdoXato("To'lov summasi 0 dan katta bo'lishi kerak", 400)
+        if summa > qolgan:
+            raise SavdoXato(f"Qolgan qarz {_son(qolgan)} so'm — undan ko'p to'lab bo'lmaydi", 400)
+        tolov = QarzTolov.objects.create(qarz=qarz, dokon=dokon, summa=summa,
+                                         tolov_turi=tolov_turi, qabul_qildi=qabul_qildi)
+        qarz.summa = qolgan - summa
+        qarz.tolangan_summa = (qarz.tolangan_summa or Decimal('0')) + summa
+        maydonlar = ['summa', 'tolangan_summa']
+        if qarz.summa <= 0:
+            qarz.summa = Decimal('0')
+            qarz.to_langan = True
+            qarz.to_langan_sana = timezone.now()
+            maydonlar += ['to_langan', 'to_langan_sana']
+        qarz.save(update_fields=maydonlar)
         Kassa.objects.get_or_create(dokon=dokon)
-        Kassa.objects.filter(dokon=dokon).update(balans=F('balans') + qarz.summa)
-    return True
+        Kassa.objects.filter(dokon=dokon).update(balans=F('balans') + summa)
+    return tolov
 
 
 def qaytarish_yarat(dokon, sotuvchi, chek, qatorlar, sabab='boshqa', izoh=''):
@@ -204,12 +230,16 @@ def _qaytarish_ichki(dokon, sotuvchi, chek, qatorlar, sabab, izoh):
     if not tanlangan:
         raise SavdoXato("Kamida bitta mahsulot va sonini tanlang.", 400)
 
+    # Qarz cheki: avval QOLGAN qarzdan ayiriladi; mijoz qarzning bir qismini to'lab
+    # bo'lgan bo'lsa, ortib qolgan qism kassadan (naqd) qaytariladi.
     qarz = None
-    kassadan = True
+    qarzdan = Decimal('0')
     if chek.tolash_turi == 'qarz':
         qarz = QarzDaftar.objects.select_for_update().filter(dokon=dokon, chek=chek).first()
         if qarz and not qarz.to_langan:
-            kassadan = False
+            qarzdan = min(jami_summa, qarz.summa or Decimal('0'))
+    kassadan_summa = jami_summa - qarzdan
+    kassadan = kassadan_summa > 0
 
     with transaction.atomic():
         qaytarish = Qaytarish.objects.create(
@@ -221,11 +251,11 @@ def _qaytarish_ichki(dokon, sotuvchi, chek, qatorlar, sabab, izoh):
                 mahsulot_nomi=cm.mahsulot_nomi, soni=soni, narx=cm.narx, jami=satr_jami)
             if cm.mahsulot_id:
                 Mahsulot.objects.filter(id=cm.mahsulot_id).update(soni=F('soni') + soni)
-        if kassadan:
+        if kassadan_summa > 0:
             Kassa.objects.get_or_create(dokon=dokon)
-            Kassa.objects.filter(dokon=dokon).update(balans=F('balans') - jami_summa)
-        elif qarz is not None:
-            yangi = max(Decimal('0'), (qarz.summa or Decimal('0')) - jami_summa)
+            Kassa.objects.filter(dokon=dokon).update(balans=F('balans') - kassadan_summa)
+        if qarz is not None and qarzdan > 0:
+            yangi = max(Decimal('0'), (qarz.summa or Decimal('0')) - qarzdan)
             qarz.summa = yangi
             if yangi == 0:
                 qarz.to_langan = True
@@ -255,6 +285,7 @@ def chek_buyurtmadan(buyurtma, sotuvchi=None, tolash_turi='naqd'):
         for it in buyurtma.itemlar.all():
             SavdoChekMahsulot.objects.create(
                 chek=chek, mahsulot=it.mahsulot, mahsulot_nomi=it.mahsulot_nomi,
+                ikpu=(it.mahsulot.ikpu if it.mahsulot_id else '') or '',
                 soni=it.soni, narx=it.narx, jami=it.narx * it.soni,
             )
         if tolash_turi != 'qarz':
@@ -319,7 +350,7 @@ def savdo_yarat(dokon, sotuvchi, mahsulotlar_data, tolash_turi='naqd',
                     raise _OmborYetarliEmas(mahsulot.nomi)
                 SavdoChekMahsulot.objects.create(
                     chek=chek, mahsulot=mahsulot, mahsulot_nomi=mahsulot.nomi,
-                    soni=soni, narx=narx, jami=soni * narx,
+                    ikpu=mahsulot.ikpu or '', soni=soni, narx=narx, jami=soni * narx,
                 )
             if tolash_turi != 'qarz':
                 Kassa.objects.get_or_create(dokon=dokon)

@@ -339,9 +339,16 @@ def qarz_tolash_api(request, qarz_id):
     dokon = foydalanuvchi_dokoni(request.user)
     if not dokon:
         return Response({'error': "Do'kon topilmadi"}, status=status.HTTP_403_FORBIDDEN)
-    from kassa.savdo_service import qarz_tolash_yadro
-    if qarz_tolash_yadro(dokon, qarz_id):
-        return Response({'status': 'ok'})
+    from kassa.savdo_service import qarz_tolash_yadro, SavdoXato
+    try:
+        tolov = qarz_tolash_yadro(dokon, qarz_id, summa=request.data.get('summa') or None,
+                                  tolov_turi=request.data.get('tolov_turi', 'naqd'),
+                                  qabul_qildi=request.user)
+    except SavdoXato as e:
+        return Response({'error': e.message}, status=e.code)
+    if tolov:
+        return Response({'status': 'ok', 'tolandi': float(tolov.summa),
+                         'qolgan': float(tolov.qarz.summa), 'yopildi': tolov.qarz.to_langan})
     return Response({'error': "Topilmadi yoki allaqachon to'langan"},
                     status=status.HTTP_404_NOT_FOUND)
 

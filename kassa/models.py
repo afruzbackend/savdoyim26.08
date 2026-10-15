@@ -1,6 +1,7 @@
 import uuid
 from decimal import Decimal
 from django.db import models
+from django.utils import timezone
 from datetime import time as _time
 from users.models import DokonEgasiProfil, CustomUser
 from mahsulot.models import Mahsulot
@@ -132,6 +133,7 @@ class SavdoChekMahsulot(models.Model):
         Mahsulot, on_delete=models.SET_NULL, null=True, blank=True
     )
     mahsulot_nomi = models.CharField(max_length=200)
+    ikpu = models.CharField(max_length=17, blank=True, default='')   # sotuv paytidagi IKPU (o'zgarmaydi)
     soni = models.DecimalField(max_digits=12, decimal_places=3)
     narx = models.DecimalField(max_digits=12, decimal_places=2)
     jami = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -209,7 +211,10 @@ class QarzDaftar(models.Model):
     chek = models.ForeignKey(
         SavdoChek, on_delete=models.SET_NULL, null=True, blank=True
     )
+    # summa — QOLGAN (to'lanmagan) qarz. Qisman to'lovda kamayadi, 0 bo'lganda to_langan=True.
+    # Dastlabki qarz = summa + tolangan_summa (jami_qarz).
     summa = models.DecimalField(max_digits=15, decimal_places=2)
+    tolangan_summa = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     to_langan = models.BooleanField(default=False)
     to_langan_sana = models.DateTimeField(blank=True, null=True)
     qaytarish_sana = models.DateField(blank=True, null=True,
@@ -220,5 +225,28 @@ class QarzDaftar(models.Model):
     def __str__(self):
         return f"{self.mijoz_ism} - {self.summa}"
 
+    @property
+    def jami_qarz(self):
+        """Dastlabki qarz summasi (qolgan + to'langan)."""
+        return (self.summa or 0) + (self.tolangan_summa or 0)
+
     class Meta:
         verbose_name = 'Qarz Daftar'
+
+class QarzTolov(models.Model):
+    """Qarzga qilingan har bir to'lov (qisman yoki to'liq) — tarix va smena verkasi uchun."""
+    TOLOV_TURI = [('naqd', 'Naqd'), ('karta', 'Karta')]
+    qarz = models.ForeignKey(QarzDaftar, on_delete=models.CASCADE, related_name='tolovlar')
+    dokon = models.ForeignKey(DokonEgasiProfil, on_delete=models.CASCADE, related_name='qarz_tolovlari')
+    summa = models.DecimalField(max_digits=15, decimal_places=2)
+    tolov_turi = models.CharField(max_length=10, choices=TOLOV_TURI, default='naqd')
+    qabul_qildi = models.ForeignKey('users.CustomUser', on_delete=models.SET_NULL, null=True, blank=True)
+    sana = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        verbose_name = "Qarz to'lovi"
+        verbose_name_plural = "Qarz to'lovlari"
+        ordering = ['-sana']
+
+    def __str__(self):
+        return f"{self.qarz_id}: {self.summa}"

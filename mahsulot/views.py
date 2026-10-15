@@ -50,6 +50,19 @@ def _son(d):
     return format(d.normalize(), 'f')
 
 
+def _ikpu_tozala(raw):
+    """IKPU (MXIK) kodini tozalaydi: faqat raqamlar. Qaytaradi (qiymat, xato).
+    Bo'sh — ruxsat (keyin to'ldirish mumkin); aks holda aynan 17 raqam bo'lishi shart."""
+    s = ''.join(ch for ch in str(raw or '') if ch.isdigit())
+    if s.endswith('0') and str(raw or '').strip().endswith('.0'):
+        s = s[:-1]   # Excel raqamni float qilgan bo'lsa ("...123.0")
+    if not s:
+        return '', None
+    if len(s) != 17:
+        return '', "IKPU (MXIK) kodi 17 ta raqamdan iborat bo'lishi kerak (tasnif.soliq.uz)"
+    return s, None
+
+
 def _get_dokon(user):
     """Do'kon egasi yoki TASDIQLANGAN sotuvchining do'koni (yagona manba)."""
     from users.services import foydalanuvchi_dokoni
@@ -114,6 +127,9 @@ def mahsulot_qoshish(request):
             minimum_son = _miqdor(request.POST.get('minimum_son', '5'), birlik, default='5')
             tavsif = request.POST.get('tavsif', '')
             barkod = request.POST.get('barkod', '').strip() or None
+            ikpu, ikpu_xato = _ikpu_tozala(request.POST.get('ikpu', ''))
+            if ikpu_xato:
+                return JsonResponse({'status': 'error', 'error': ikpu_xato}, status=400)
             kategoriya_slug = request.POST.get('kategoriya', '').strip()
 
             # Yaroqlilik muddati (ixtiyoriy, sana+soat: YYYY-MM-DDTHH:MM; eski YYYY-MM-DD ham qabul qilinadi)
@@ -143,6 +159,7 @@ def mahsulot_qoshish(request):
                 birlik=birlik,
                 tavsif=tavsif,
                 barkod=barkod,
+                ikpu=ikpu,
                 yaroqlilik_muddati=yaroqlilik_muddati,
             )
 
@@ -191,7 +208,7 @@ def mahsulot_qoshish(request):
 @login_required
 def mahsulot_import(request):
     """Excel (.xlsx) yoki CSV fayldan mahsulotlarni bir yo'la qo'shish.
-    Ustunlar: nomi, narx, soni, barkod, kategoriya, birlik (birinchi qator — sarlavha)."""
+    Ustunlar: nomi, narx, soni, barkod, kategoriya, birlik, ikpu (birinchi qator — sarlavha)."""
     if request.user.rol not in ['dokon_egasi', 'zavod']:
         return redirect('login')
 
@@ -230,6 +247,7 @@ def mahsulot_import(request):
         i_bar = idx('barkod', 'barcode', 'shtrix', 'штрих')
         i_kat = idx('kategoriya', 'category', 'turi', 'категория')
         i_birlik = idx('birlik', 'unit', 'olchov')
+        i_ikpu = idx('ikpu', 'mxik', 'икпу', 'мхик')
 
         if i_nom < 0 or i_narx < 0:
             messages.error(request, "Faylda kamida 'nomi' va 'narx' ustunlari bo'lishi shart.")
@@ -266,7 +284,8 @@ def mahsulot_import(request):
                     otkazildi += 1
                     continue
 
-                m = Mahsulot(nomi=nomi, narx=narx, soni=max(0, soni),
+                ikpu, _ = _ikpu_tozala(_hujayra(r, i_ikpu))   # noto'g'ri bo'lsa bo'sh qoladi
+                m = Mahsulot(nomi=nomi, narx=narx, soni=max(0, soni), ikpu=ikpu,
                              birlik=birlik, barkod=barkod, dokon=dokon, zavod=zavod)
                 # Kategoriya: to'g'ridan-to'g'ri slug yoki nom/matndan aniqlash
                 kat_slug = ''
@@ -750,6 +769,10 @@ def mahsulot_tahrir(request, mahsulot_id):
         except ValueError:
             minimum_son = mahsulot.minimum_son
         faol = request.POST.get('faol') == 'on'
+        ikpu, ikpu_xato = _ikpu_tozala(request.POST.get('ikpu', mahsulot.ikpu))
+        if ikpu_xato:
+            messages.error(request, ikpu_xato)
+            return redirect('mahsulot_tahrir', mahsulot_id=mahsulot.id)
 
         with transaction.atomic():
             mahsulot.nomi = nomi
@@ -758,8 +781,9 @@ def mahsulot_tahrir(request, mahsulot_id):
             mahsulot.birlik = birlik
             mahsulot.minimum_son = minimum_son
             mahsulot.faol = faol
+            mahsulot.ikpu = ikpu
             mahsulot.save(update_fields=['nomi', 'narx', 'sotib_olish_narxi',
-                                         'birlik', 'minimum_son', 'faol', 'yangilangan'])
+                                         'birlik', 'minimum_son', 'faol', 'ikpu', 'yangilangan'])
             # Narx yoki tannarx o'zgargan bo'lsa — tarixga yozamiz
             if yangi_narx != eski_narx or yangi_sotib != eski_sotib:
                 NarxTarix.objects.create(

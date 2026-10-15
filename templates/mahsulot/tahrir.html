@@ -65,6 +65,11 @@
         <label class="form-label">Minimum son (kam ogohlantirish)</label>
         <input type="number" name="minimum_son" class="form-control" min="0" step="any" value="{{ mahsulot.minimum_son|son }}">
       </div>
+      <div class="form-group">
+        <label class="form-label">IKPU (MXIK) kodi <span style="color:var(--text3);font-weight:400;">— 17 raqam</span></label>
+        <input type="text" name="ikpu" class="form-control" maxlength="17" inputmode="numeric"
+               value="{{ mahsulot.ikpu }}" placeholder="tasnif.soliq.uz dan">
+      </div>
 
       <div class="form-group th-full">
         <label class="faol-row">

@@ -36,7 +36,9 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '').strip()
 if not SECRET_KEY:
     if not _DEV:
         raise ImproperlyConfigured(
-            "DJANGO_SECRET_KEY .env da berilmagan. Yarating: "
+            "DJANGO_SECRET_KEY .env da berilmagan. "
+            "Lokal kompyuterda ishlayotgan bo'lsangiz .env fayliga DJANGO_DEBUG=True yozing. "
+            "Serverda esa kalit yarating: "
             "python -c \"import secrets; print(secrets.token_urlsafe(50))\""
         )
     SECRET_KEY = 'dev-faqat-lokal-' + 'x' * 40

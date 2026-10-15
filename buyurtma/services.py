@@ -1,18 +1,21 @@
 """Buyurtma biznes logikasi (state machine). View'lar faqat shu servisni chaqiradi."""
+from datetime import timedelta
 from django.db import transaction
+from django.utils import timezone
 from .models import MijozBuyurtma, MijozBuyurtmaItem, BuyurtmaStatusTarix, Savat
 from users.services import ServiceError, AuditService, NotificationService
 
 
 def sotuvchi_dokoni(user):
-    """Sotuvchi/do'kon egasining do'koni (aks holda None)."""
-    if user.rol == 'dokon_egasi':
-        return getattr(user, 'dokon_profil', None)
-    if user.rol == 'sotuvchi':
-        sp = getattr(user, 'sotuvchi_profil', None)
-        if sp and sp.sorov_holati == 'tasdiqlangan':
-            return sp.dokon
-    return None
+    """Sotuvchi/do'kon egasining do'koni (aks holda None) — yagona manba."""
+    from users.services import foydalanuvchi_dokoni
+    return foydalanuvchi_dokoni(user)
+
+
+FAOL_HOLATLAR = ('yangi', 'tayyorlanmoqda', 'tayyor')
+MAX_FAOL_BUYURTMA = 5      # bir mijozda bir vaqtda yakunlanmagan buyurtmalar
+MAX_BIR_MAHSULOT = 50      # bitta mahsulotdan bir buyurtmada
+REZERV_SOAT = 24           # shuncha soatda olib ketilmasa — avtomatik bekor, ombor qaytadi
 
 
 class OrderService:
@@ -28,11 +31,21 @@ class OrderService:
         Buyurtma bekor qilinsa (OrderService.cancel) ombor qaytariladi."""
         if not itemlar:
             raise ServiceError("Buyurtma bo'sh.", 400)
+        if getattr(mijoz, 'rol', None) != 'mijoz':
+            raise ServiceError("Onlayn buyurtmani faqat mijoz bera oladi.", 403)
         from mahsulot.models import Mahsulot
         from django.db.models import F
+        # Muddati o'tgan (olib ketilmagan) buyurtmalar rezervini bo'shatamiz
+        OrderService.eskilarni_bekor_qil(dokon)
+        faol = MijozBuyurtma.objects.filter(mijoz=mijoz, holat__in=FAOL_HOLATLAR).count()
+        if faol >= MAX_FAOL_BUYURTMA:
+            raise ServiceError(
+                f"Sizda {faol} ta yakunlanmagan buyurtma bor. Avval ularni olib keting yoki bekor qiling.", 429)
         for mahsulot, soni in itemlar:
             if soni <= 0:
                 raise ServiceError(f"{mahsulot.nomi}: son noto'g'ri.", 400)
+            if soni > MAX_BIR_MAHSULOT:
+                raise ServiceError(f"{mahsulot.nomi}: bitta buyurtmada ko'pi bilan {MAX_BIR_MAHSULOT} ta.", 400)
         buyurtma = MijozBuyurtma.objects.create(mijoz=mijoz, dokon=dokon, holat='yangi')
         for mahsulot, soni in itemlar:
             # Faqat omborda yetarli bo'lsagina kamayadi (poyga/race himoyasi).
@@ -64,20 +77,45 @@ class OrderService:
         dokon = sotuvchi_dokoni(user)
         if not (egasimi or (dokon and dokon == buyurtma.dokon)):
             raise ServiceError("Ruxsat yo'q.", 403)
-        if buyurtma.holat in ('olib_ketildi', 'bekor'):
-            raise ServiceError("Bu buyurtmani bekor qilib bo'lmaydi.", 409)
-        from mahsulot.models import Mahsulot
-        from django.db.models import F
-        # Rezervlangan tovarlar omborga qaytadi
-        for it in buyurtma.itemlar.all():
-            if it.mahsulot_id:
-                Mahsulot.objects.filter(id=it.mahsulot_id).update(soni=F('soni') + it.soni)
-        buyurtma.holat = 'bekor'
-        buyurtma.save(update_fields=['holat', 'yangilangan'])
+        OrderService._bekorga_otkaz(buyurtma)
         BuyurtmaStatusTarix.objects.create(buyurtma=buyurtma, holat='bekor')
         NotificationService.send_order_status(buyurtma, 'bekor')
         AuditService.log(user, 'order_status_changed', buyurtma, 'bekor', request)
         return buyurtma
+
+    @staticmethod
+    def _bekorga_otkaz(buyurtma):
+        """Holatni ATOMIK (shartli UPDATE) 'bekor' ga o'tkazadi va rezervni qaytaradi.
+        Ikki marta bir vaqtda bekor qilinsa ham ombor faqat BIR marta qaytadi."""
+        from mahsulot.models import Mahsulot
+        from django.db.models import F
+        ozgardi = (MijozBuyurtma.objects
+                   .filter(pk=buyurtma.pk, holat__in=FAOL_HOLATLAR)
+                   .update(holat='bekor', yangilangan=timezone.now()))
+        if not ozgardi:
+            raise ServiceError("Bu buyurtmani bekor qilib bo'lmaydi.", 409)
+        for it in buyurtma.itemlar.all():
+            if it.mahsulot_id:
+                Mahsulot.objects.filter(id=it.mahsulot_id).update(soni=F('soni') + it.soni)
+        buyurtma.holat = 'bekor'
+
+    @staticmethod
+    def eskilarni_bekor_qil(dokon=None):
+        """REZERV_SOAT dan ko'p olib ketilmagan buyurtmalarni bekor qilib, omborni bo'shatadi."""
+        chegara = timezone.now() - timedelta(hours=REZERV_SOAT)
+        qs = MijozBuyurtma.objects.filter(holat__in=FAOL_HOLATLAR, yaratilgan__lt=chegara)
+        if dokon is not None:
+            qs = qs.filter(dokon=dokon)
+        soni = 0
+        for b in qs[:200]:
+            try:
+                with transaction.atomic():
+                    OrderService._bekorga_otkaz(b)
+                    BuyurtmaStatusTarix.objects.create(buyurtma=b, holat='bekor')
+                soni += 1
+            except ServiceError:
+                continue
+        return soni
 
     @staticmethod
     @transaction.atomic
@@ -115,8 +153,13 @@ class OrderService:
             raise ServiceError("Buyurtma yakuniy holatda.", 409)
         if target is not None and target != keyingi:
             raise ServiceError("Statusni faqat ketma-ket oldinga o'tkazish mumkin.", 400)
+        # Shartli UPDATE: ikki xodim bir vaqtda bossa ham holat (va chek/ball) bir marta o'zgaradi
+        ozgardi = (MijozBuyurtma.objects
+                   .filter(pk=buyurtma.pk, holat=buyurtma.holat)
+                   .update(holat=keyingi, yangilangan=timezone.now()))
+        if not ozgardi:
+            raise ServiceError("Buyurtma holati allaqachon o'zgargan. Sahifani yangilang.", 409)
         buyurtma.holat = keyingi
-        buyurtma.save(update_fields=['holat', 'yangilangan'])
         BuyurtmaStatusTarix.objects.create(buyurtma=buyurtma, holat=keyingi)
         NotificationService.send_order_status(buyurtma, keyingi)
         AuditService.log(user, 'order_status_changed', buyurtma, keyingi, request)
@@ -148,11 +191,12 @@ class SodiqlikService:
         ball = int(buyurtma.jami // BALL_TOPISH_NARXI)
         if ball <= 0:
             return 0
-        profil = MijozProfil.objects.filter(foydalanuvchi=buyurtma.mijoz).first()
-        if not profil:
+        from django.db.models import F
+        from django.db.models.functions import Coalesce
+        ozgardi = (MijozProfil.objects.filter(foydalanuvchi=buyurtma.mijoz)
+                   .update(sodiqlik_ball=Coalesce(F('sodiqlik_ball'), 0) + ball))
+        if not ozgardi:
             return 0
-        profil.sodiqlik_ball = (profil.sodiqlik_ball or 0) + ball
-        profil.save(update_fields=['sodiqlik_ball'])
         SodiqlikTarix.objects.create(
             mijoz=buyurtma.mijoz, buyurtma=buyurtma, ball=ball,
             sabab=f"Buyurtma {buyurtma.raqam} uchun",

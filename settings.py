@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
+import sys
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -21,23 +23,33 @@ def env_bool(name, default=False):
     return os.environ.get(name, str(default)).strip().lower() in ('1', 'true', 'yes', 'on')
 
 
-# Maxfiy kalit .env dan olinadi (bo'lmasa — eski qiymat, faqat lokal uchun)
-SECRET_KEY = os.environ.get(
-    'DJANGO_SECRET_KEY',
-    'django-insecure-savdo-tizimi-2024-xavfsiz-kalit-ozgartiring'
-)
+# `manage.py test` — test muhiti (production tekshiruvlari o'chadi)
+RUNNING_TESTS = len(sys.argv) > 1 and sys.argv[1] == 'test'
 
-# Lokal ishlab chiqishda True. Productionda .env da DJANGO_DEBUG=False qiling.
-DEBUG = env_bool('DJANGO_DEBUG', True)
+# Standart — PRODUCTION (xavfsiz). Lokal ishlab chiqishda .env da DJANGO_DEBUG=True qiling
+# (ISHGA_TUSHIRISH.bat buni o'zi qo'yadi).
+DEBUG = env_bool('DJANGO_DEBUG', False)
+_DEV = DEBUG or RUNNING_TESTS
+
+# Maxfiy kalit FAQAT .env dan. Productionda bo'lmasa — server ishga tushmaydi.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '').strip()
+if not SECRET_KEY:
+    if not _DEV:
+        raise ImproperlyConfigured(
+            "DJANGO_SECRET_KEY .env da berilmagan. Yarating: "
+            "python -c \"import secrets; print(secrets.token_urlsafe(50))\""
+        )
+    SECRET_KEY = 'dev-faqat-lokal-' + 'x' * 40
 
 # Productionda .env da DJANGO_ALLOWED_HOSTS=domen.uz,www.domen.uz,IP ko'rinishida bering.
-# Bo'sh bo'lsa: DEBUG=True da hammasi (*), aks holda ham * (lekin domen berish tavsiya etiladi).
 _hosts = os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
-ALLOWED_HOSTS = [h.strip() for h in _hosts.split(',') if h.strip()] or ['*']
+ALLOWED_HOSTS = [h.strip() for h in _hosts.split(',') if h.strip()]
+if not ALLOWED_HOSTS:
+    if not _DEV:
+        raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS .env da berilmagan (masalan: savdoyim.uz,www.savdoyim.uz).")
+    ALLOWED_HOSTS = ['*']   # faqat lokal/telefon testi uchun
 
-# HTTPS orqali (telefonda kamera testi) POST ishlashi uchun ishonchli manzillar.
-# .env dagi qiymatlar + kompyuterning joriy LAN IP manzillari avtomatik qo'shiladi
-# (IP o'zgarsa ham telefonda ishlashi uchun).
+# HTTPS orqali POST ishlashi uchun ishonchli manzillar (.env dan).
 CSRF_TRUSTED_ORIGINS = [
     x.strip() for x in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if x.strip()
 ]
@@ -56,10 +68,17 @@ def _mahalliy_iplar():
     return iplar
 
 
-for _ip in _mahalliy_iplar():
-    for _port in ('8000', '8010'):
-        CSRF_TRUSTED_ORIGINS.append(f'https://{_ip}:{_port}')
-        CSRF_TRUSTED_ORIGINS.append(f'http://{_ip}:{_port}')
+# Lokal (DEBUG) rejimda telefon testi uchun kompyuterning LAN IP'lari avtomatik qo'shiladi.
+# Productionda qo'shilmaydi.
+if DEBUG:
+    for _ip in _mahalliy_iplar():
+        for _port in ('8000', '8010'):
+            CSRF_TRUSTED_ORIGINS.append(f'https://{_ip}:{_port}')
+            CSRF_TRUSTED_ORIGINS.append(f'http://{_ip}:{_port}')
+
+# Server nginx/proxy orqasida bo'lsa True: mijoz IP'si X-Forwarded-For'ning OXIRGI
+# (proxy qo'shgan) qiymatidan olinadi. Proxy yo'q bo'lsa False — aks holda IP soxtalashtiriladi.
+TRUST_X_FORWARDED_FOR = env_bool('TRUST_X_FORWARDED_FOR', False)
 
 # Telegram bot tokeni (.env dan)
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
@@ -167,9 +186,32 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '120/min',
+        'user': '600/min',
+        'login': '10/min',
+    },
+    # Proxy (nginx) orqasida mijoz IP'sini to'g'ri aniqlash uchun
+    'NUM_PROXIES': 1 if TRUST_X_FORWARDED_FOR else 0,
 }
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS: faqat lokal (DEBUG) rejimda hammasiga ochiq; productionda .env CORS_ALLOW_ALL bilan.
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+
+# Kesh: login/kod cheklovlari barcha gunicorn worker'larda umumiy bo'lishi uchun.
+# REDIS_URL bo'lsa Redis, aks holda fayl kesh (bitta serverda umumiy). Testda — xotira.
+if RUNNING_TESTS:
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
+elif os.environ.get('REDIS_URL'):
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+                          'LOCATION': os.environ['REDIS_URL']}}
+else:
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+                          'LOCATION': BASE_DIR / '.cache'}}
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
@@ -191,7 +233,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # PRODUCTION XAVFSIZLIGI — faqat DEBUG=False bo'lganda yoqiladi
 # (lokal/telefon testiga xalaqit bermaydi)
 # ═════════════════════════════════════════════
-if not DEBUG:
+if not _DEV:
     # HTTPS orqasidagi proxy (nginx/PaaS) HTTPS'ni to'g'ri aniqlashi uchun
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     # Cookie'lar faqat HTTPS orqali (sniffing'dan himoya)
@@ -210,6 +252,8 @@ if not DEBUG:
         SECURE_HSTS_PRELOAD = True
     # Productionda CORS'ni cheklash (kerak bo'lsa .env orqali kengaytiriladi)
     CORS_ALLOW_ALL_ORIGINS = env_bool('CORS_ALLOW_ALL', False)
+    # Sessiya 7 kun (standart 2 hafta o'rniga)
+    SESSION_COOKIE_AGE = 7 * 24 * 3600
 
 LANGUAGE_CODE = 'uz'
 TIME_ZONE = 'Asia/Tashkent'
@@ -242,21 +286,17 @@ MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 #  SMTP_PAROL bo'sh bo'lsa -> kod EMAILGA BORMAYDI, faqat terminalga chiqadi (test).
 # ═════════════════════════════════════════════
 
-# SMTP ma'lumotlari endi .env faylidan olinadi (git'ga tushmaydi).
-SMTP_HOST  = os.environ.get('SMTP_HOST', 'smtp-relay.brevo.com')
-SMTP_LOGIN = os.environ.get('SMTP_LOGIN', '')
-SMTP_PAROL = os.environ.get('SMTP_PAROL', '')
-SMTP_FROM  = os.environ.get('SMTP_FROM', 'phytonbackend@gmail.com')
-
-# Env o'zgaruvchilar ustun turadi (ishlab chiqarish uchun xavfsizroq)
-EMAIL_HOST = os.environ.get('EMAIL_HOST', SMTP_HOST)
+# SMTP ma'lumotlari .env faylidan olinadi (git'ga tushmaydi).
+# Diqqat: parol settings nomida saqlanmaydi (DEBUG xato sahifasida ko'rinib qolmasligi uchun).
+EMAIL_HOST = os.environ.get('EMAIL_HOST', os.environ.get('SMTP_HOST', 'smtp-relay.brevo.com'))
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', SMTP_LOGIN)
-EMAIL_HOST_PASSWORD = (os.environ.get('EMAIL_HOST_PASSWORD', '') or SMTP_PAROL).replace(' ', '')
-_email_from = os.environ.get('EMAIL_FROM', SMTP_FROM)
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', os.environ.get('SMTP_LOGIN', ''))
+EMAIL_HOST_PASSWORD = (os.environ.get('EMAIL_HOST_PASSWORD', '') or os.environ.get('SMTP_PAROL', '')).replace(' ', '')
+_email_from = os.environ.get('EMAIL_FROM', os.environ.get('SMTP_FROM', 'phytonbackend@gmail.com'))
 
-# Parol bor -> haqiqiy SMTP; yo'q -> konsol (test rejimi)
+# Parol bor -> haqiqiy SMTP; yo'q -> konsol (faqat lokal test rejimi).
+# Productionda konsol rejimi kodlarni hech qachon ekranga chiqarmaydi (users/views.py: test_rejimi()).
 if EMAIL_HOST_PASSWORD:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 else:
@@ -266,16 +306,13 @@ else:
 DEFAULT_FROM_EMAIL = 'Savdoyim <{}>'.format(_email_from)
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
-# ─────────────────────────────────────────────
-# BREVO API (ENG OSON YO'L) — Login KERAK EMAS, faqat 1 ta API kalit!
-#   1) Brevo -> "SMTP & API" -> "API Keys" bo'limi
-#   2) "Generate a new API key" -> nusxa oling (xkeysib-... bilan boshlanadi)
-#   3) Uni pastdagi BREVO_API_KEY ga qo'ying
-#   4) Brevo -> "Senders" da yuboruvchi emailni TASDIQLANG va uni
-#      BREVO_SENDER_EMAIL ga yozing
-#   5) Serverni qayta ishga tushiring
-#   BREVO_API_KEY bo'lsa -> email API orqali yuboriladi (SMTP'dan ustun).
-# ─────────────────────────────────────────────
-BREVO_API_KEY = os.environ.get('BREVO_API_KEY', "")          # ← xkeysib-... shu yerga
-BREVO_SENDER_EMAIL = os.environ.get('BREVO_SENDER_EMAIL', "phytonbackend@gmail.com")  # tasdiqlangan yuboruvchi
-BREVO_SENDER_NAME = "Savdoyim"
+# Admin panel manzili (.env ADMIN_URL bilan o'zgartiring — taxmin qilinmasin)
+ADMIN_URL = os.environ.get('ADMIN_URL', 'admin/').strip('/') + '/'
+
+# Loglar konsolga (gunicorn/systemd jurnaliga) yoziladi
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {'console': {'class': 'logging.StreamHandler'}},
+    'root': {'handlers': ['console'], 'level': os.environ.get('LOG_LEVEL', 'WARNING')},
+}

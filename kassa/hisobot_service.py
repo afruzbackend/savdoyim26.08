@@ -28,17 +28,12 @@ def pul(qiymat):
 
 
 def dokon_aniqla(user: CustomUser):
-    """Foydalanuvchidan uning do'konini (DokonEgasiProfil) topadi.
-    Do'kon egasi -> o'z do'koni; Sotuvchi -> biriktirilgan do'kon."""
+    """Foydalanuvchidan uning do'konini topadi. Faqat do'kon egasi yoki TASDIQLANGAN
+    sotuvchi (Telegram bot ham shu orqali) — yagona manba users.services."""
+    from users.services import foydalanuvchi_dokoni
     if not user:
         return None
-    rol = getattr(user, 'rol', None)
-    if rol == 'dokon_egasi':
-        return getattr(user, 'dokon_profil', None)
-    if rol == 'sotuvchi':
-        prof = getattr(user, 'sotuvchi_profil', None)
-        return prof.dokon if prof else None
-    return None
+    return foydalanuvchi_dokoni(user)
 
 
 def _kun_oralig(sana):

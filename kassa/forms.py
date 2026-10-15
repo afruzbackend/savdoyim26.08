@@ -82,25 +82,3 @@ class SavdoForm(forms.Form):
         label='Telefon',
     )
 
-    # Karta to'lov
-    karta_raqami = forms.CharField(
-        required=False,
-        max_length=19,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': '9860 0000 0000 0000',
-            'maxlength': '19',
-            'inputmode': 'numeric',
-        }),
-        label='Karta raqami',
-    )
-    karta_kod = forms.CharField(
-        required=False,
-        max_length=6,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Tasdiqlash kodi',
-            'inputmode': 'numeric',
-        }),
-        label='Tasdiqlash kodi',
-    )

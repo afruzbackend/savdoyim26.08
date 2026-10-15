@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Savdoyim">
+<script>function escHtml(s){return String(s==null?'':s).replace(/[&<>"'`]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c];});}</script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
@@ -1053,7 +1054,8 @@ function showToast(msg, type = 'success') {
   const t  = document.createElement('div');
   t.className = `toast toast-${type}`;
   const ic = type === 'success' ? 'check-circle' : type === 'error' ? 'times-circle' : 'info-circle';
-  t.innerHTML = `<i class="fas fa-${ic}"></i>${msg}`;
+  t.innerHTML = `<i class="fas fa-${ic}"></i>`;
+  t.appendChild(document.createTextNode(String(msg == null ? '' : msg)));
   document.getElementById('toast-container').appendChild(t);
   setTimeout(() => {
     t.style.animation = 'slideIn 0.3s cubic-bezier(.4,0,.2,1) reverse';

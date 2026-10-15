@@ -1,14 +1,18 @@
-Django>=4.2,<5.0
-djangorestframework>=3.14,<4.0
-django-cors-headers>=4.3,<5.0
-Pillow>=9.0
-python-dotenv>=1.0
-psycopg2-binary>=2.9
-pyTelegramBotAPI>=4.14
-openpyxl>=3.1
-reportlab>=4.0
-qrcode>=7.4
-openai>=1.40             # AI hisobot yordamchisi (TokenRouter OpenAI-mos)
+# Python 3.12 tavsiya etiladi. Versiyalar mos oraliqda qotirilgan (xavfsizlik yangilanishlari keladi,
+# katta o'zgarishlar kelmaydi). Django 5.2 — LTS (2028-aprelgacha xavfsizlik yangilanishlari).
+Django>=5.2,<5.3
+djangorestframework>=3.15,<4.0
+django-cors-headers>=4.4,<5.0
+Pillow>=11.0,<13.0
+python-dotenv>=1.0,<2.0
+psycopg2-binary>=2.9,<3.0
+pyTelegramBotAPI>=4.14,<5.0
+openpyxl>=3.1,<4.0
+reportlab>=4.0,<5.0
+qrcode>=7.4,<9.0
+openai>=1.40,<3.0             # AI hisobot yordamchisi (OpenAI-mos endpoint)
+requests>=2.31,<3.0           # Telegram HTTP xabarlari
 # ── Production ──
-whitenoise>=6.6          # statik fayllarni DEBUG=False da xizmat qilish
-gunicorn>=21.2           # production WSGI server (Linux)
+whitenoise>=6.6,<7.0          # statik fayllarni DEBUG=False da xizmat qilish
+gunicorn>=21.2,<24.0          # production WSGI server (Linux)
+redis>=5.0,<7.0               # ixtiyoriy: REDIS_URL berilsa umumiy kesh

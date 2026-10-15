@@ -267,21 +267,12 @@ function smenaYopishToggle(){
         </div>
       </div>
 
-      <!-- KARTA: raqam + tasdiqlash kodi -->
+      <!-- KARTA: to'lov terminal (POS) orqali; karta ma'lumoti tizimga KIRITILMAYDI -->
       <div id="karta-fields" class="hidden">
-        <div class="form-group">
-          <label class="form-label">Karta raqami:</label>
-          <input type="text" name="karta_raqami" id="kartaRaqam" class="form-control karta-input"
-                 placeholder="9860 0000 0000 0000" maxlength="19" inputmode="numeric" autocomplete="off">
+        <div style="font-size:13px;color:var(--text2);padding:10px 12px;border-radius:10px;background:rgba(91,138,245,0.08);margin-bottom:10px;">
+          <i class="fas fa-credit-card"></i> Mijoz kartani to'lov terminali (POS) orqali to'laydi.
+          Terminal chekini tekshirib, so'ng "Sotish" tugmasini bosing.
         </div>
-        <div class="form-group" id="kodField" style="display:none;">
-          <label class="form-label">Tasdiqlash kodi:</label>
-          <input type="text" name="karta_kod" id="kartaKod" class="form-control"
-                 placeholder="Kodni kiriting" maxlength="6" inputmode="numeric">
-        </div>
-        <button type="button" onclick="kartaKodYuborish()" id="kodBtn" class="btn btn-outline btn-sm" style="width:100%;justify-content:center;margin-bottom:10px;">
-          <i class="fas fa-paper-plane"></i> Kod Yuborish
-        </button>
       </div>
 
       <!-- QARZ: mijoz ism + tel + qaytarish sanasi (chegirmasiz) -->
@@ -382,24 +373,6 @@ function tolTur(tur) {
   document.getElementById('karta-fields').classList.add('hidden');
   document.getElementById('qarz-fields').classList.add('hidden');
   document.getElementById(tur + '-fields').classList.remove('hidden');
-}
-
-// Karta raqami formatlash (9860 0000 0000 0000)
-document.getElementById('kartaRaqam').addEventListener('input', function(e) {
-  let v = e.target.value.replace(/\D/g, '').substring(0, 16);
-  e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
-});
-
-// Kod yuborish (test: istalgan kod qabul)
-let kodYuborildi = false;
-function kartaKodYuborish() {
-  const raqam = document.getElementById('kartaRaqam').value.replace(/\s/g, '');
-  if (raqam.length < 16) { showToast('Karta raqamini to\'liq kiriting!', 'error'); return; }
-  document.getElementById('kodField').style.display = 'block';
-  document.getElementById('kodBtn').innerHTML = '<i class="fas fa-check"></i> Kod Yuborildi';
-  document.getElementById('kodBtn').disabled = true;
-  kodYuborildi = true;
-  showToast('Tasdiqlash kodi yuborildi!', 'success');
 }
 
 // Mahsulot qidirish
@@ -553,7 +526,7 @@ function onBarkod(kod){
     const box = document.getElementById('skanLast');
     if(r.error){
       setStatus("❌ " + r.error);
-      const matn = r.muddati_otgan ? `⛔ ${r.error}` : `❌ ${kod} — topilmadi`;
+      const matn = r.muddati_otgan ? `⛔ ${escHtml(r.error)}` : `❌ ${escHtml(kod)} — topilmadi`;
       box.insertAdjacentHTML('afterbegin', `<div class="skan-item err">${matn}</div>`);
       if(r.muddati_otgan) showToast(r.error, 'error');
       return;
@@ -563,11 +536,11 @@ function onBarkod(kod){
       skanCount++;
       setStatus(`✅ Qo'shildi — jami ${skanCount} ta skan`);
       box.insertAdjacentHTML('afterbegin',
-        `<div class="skan-item ok">✅ ${r.nomi} — ${narx} UZS · savatda: ${r.savatda}</div>`);
+        `<div class="skan-item ok">✅ ${escHtml(r.nomi)} — ${escHtml(narx)} UZS · savatda: ${escHtml(r.savatda)}</div>`);
     } else {
       setStatus("⚠️ Ombordagi soni tugagan");
       box.insertAdjacentHTML('afterbegin',
-        `<div class="skan-item err">⚠️ ${r.nomi} — qoldi tugagan (${r.soni_qoldi})</div>`);
+        `<div class="skan-item err">⚠️ ${escHtml(r.nomi)} — qoldi tugagan (${escHtml(r.soni_qoldi)})</div>`);
     }
   }).catch(e => setStatus("Xatolik: " + e));
 }

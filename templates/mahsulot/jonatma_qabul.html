@@ -42,15 +42,15 @@ async function qabulQil(barkod){
       <div style="margin-top:8px;">`;
     res.mahsulotlar.forEach(m=>{
       html+=`<div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0;">
-        <span>${m.nomi} ${m.yangi?'<span style=\"color:var(--accent);font-size:11px;\">(yangi)</span>':''}</span>
-        <b>+${m.soni} ${m.birlik}</b></div>`;
+        <span>${escHtml(m.nomi)} ${m.yangi?'<span style=\"color:var(--accent);font-size:11px;\">(yangi)</span>':''}</span>
+        <b>+${escHtml(m.soni)} ${escHtml(m.birlik)}</b></div>`;
     });
     html+='</div></div>';
     el.innerHTML=html;
     showToast('Omborga qo\'shildi!','success');
     document.getElementById('barkodInput').value='';
   } else {
-    el.innerHTML=`<div style="padding:12px;border-radius:10px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.25);color:var(--danger);"><i class="fas fa-circle-xmark"></i> ${res.error||'Xatolik'}</div>`;
+    el.innerHTML=`<div style="padding:12px;border-radius:10px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.25);color:var(--danger);"><i class="fas fa-circle-xmark"></i> ${escHtml(res.error||'Xatolik')}</div>`;
     showToast(res.error||'Xatolik','error');
   }
 }

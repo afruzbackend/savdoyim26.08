@@ -91,9 +91,12 @@ def smena_yop(dokon, real_naqd=None):
     if not smena:
         raise SavdoXato("Ochiq smena yo'q.", 400)
 
+    yopilgan = timezone.now()
+    # Shartli UPDATE: ikki marta bosilsa ham smena faqat bir marta yopiladi
+    if not Smena.objects.filter(pk=smena.pk, holat='ochiq').update(holat='yopiq', yopilgan=yopilgan):
+        raise SavdoXato("Smena allaqachon yopilgan.", 409)
     smena.holat = 'yopiq'
-    smena.yopilgan = timezone.now()
-    smena.save(update_fields=['holat', 'yopilgan'])
+    smena.yopilgan = yopilgan
 
     data = _yig(dokon, smena.ochilgan, smena.yopilgan)
 
@@ -156,7 +159,16 @@ def qaytarish_yarat(dokon, sotuvchi, chek, qatorlar, sabab='boshqa', izoh=''):
     from .models import Qaytarish, QaytarishItem
     if sabab not in dict(Qaytarish.SABAB):
         sabab = 'boshqa'
+    # Tekshiruv ham, yozish ham BITTA tranzaksiyada va chek qulflangan holda:
+    # bir vaqtda ikki qaytarish kelsa, ikkinchisi birinchisi tugashini kutadi va
+    # yangilangan "qolgan" son bilan tekshiriladi (ortiqcha qaytarish yo'q).
+    with transaction.atomic():
+        chek = SavdoChek.objects.select_for_update().get(pk=chek.pk, dokon=dokon)
+        return _qaytarish_ichki(dokon, sotuvchi, chek, qatorlar, sabab, izoh)
 
+
+def _qaytarish_ichki(dokon, sotuvchi, chek, qatorlar, sabab, izoh):
+    from .models import Qaytarish, QaytarishItem
     cm_map = {cm.id: cm for cm in chek.mahsulotlar.all()}
 
     # Avval cm_id bo'yicha sonlarni YIG'AMIZ — bitta so'rovda bir xil qator
@@ -195,7 +207,7 @@ def qaytarish_yarat(dokon, sotuvchi, chek, qatorlar, sabab='boshqa', izoh=''):
     qarz = None
     kassadan = True
     if chek.tolash_turi == 'qarz':
-        qarz = QarzDaftar.objects.filter(dokon=dokon, chek=chek).first()
+        qarz = QarzDaftar.objects.select_for_update().filter(dokon=dokon, chek=chek).first()
         if qarz and not qarz.to_langan:
             kassadan = False
 

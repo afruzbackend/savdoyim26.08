@@ -10,6 +10,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
 
 from mahsulot.models import Mahsulot
 from kassa.models import Kassa, SavdoChek, QarzDaftar
@@ -25,6 +26,9 @@ class LoginView(APIView):
     so'rovlarda `Authorization: Token <token>` sarlavhasida yuboriladi."""
     authentication_classes = []
     permission_classes = [AllowAny]
+    # Parolni tanlab topishdan himoya (settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['login'])
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
 
     def post(self, request):
         username = (request.data.get('username') or '').strip()

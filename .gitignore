@@ -23,3 +23,6 @@ backups/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Fayl kesh (login/kod cheklovlari)
+.cache/

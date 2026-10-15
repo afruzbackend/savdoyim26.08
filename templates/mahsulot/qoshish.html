@@ -646,7 +646,7 @@ async function barkodQidir(kod){
         if(chip) tanlaKat(chip);
       }
       info.style.color = 'var(--accent3)';
-      info.innerHTML = '✅ Topildi: <b>' + d.nomi + '</b>' +
+      info.innerHTML = '✅ Topildi: <b>' + escHtml(d.nomi) + '</b>' +
         (d.kategoriya ? ' · kategoriya tanlandi' : '') +
         '<br><span style="color:var(--text3);">Narx, soni va rasmni qo\'lda to\'ldiring.</span>';
       showToast('Mahsulot topildi: ' + d.nomi, 'success');

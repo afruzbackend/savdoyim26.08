@@ -35,7 +35,7 @@ def soliq_dashboard(request):
         return redirect('login')
 
     sozlama, _ = SoliqSozlama.objects.get_or_create(dokon=dokon, defaults={'stavka': 12.0})
-    bugun = timezone.now().date()
+    bugun = timezone.localdate()
 
     k_s, k_sol = _hisob(dokon, sozlama.stavka, bugun)
     h_s, h_sol = _hisob(dokon, sozlama.stavka, bugun - timedelta(days=7))
@@ -60,7 +60,7 @@ def soliq_api(request):
         return JsonResponse({'error': 'Profil topilmadi'}, status=404)
 
     sozlama, _ = SoliqSozlama.objects.get_or_create(dokon=dokon, defaults={'stavka': 12.0})
-    bugun = timezone.now().date()
+    bugun = timezone.localdate()
 
     k_s, k_sol = _hisob(dokon, sozlama.stavka, bugun)
     h_s, h_sol = _hisob(dokon, sozlama.stavka, bugun - timedelta(days=7))

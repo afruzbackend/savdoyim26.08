@@ -24,7 +24,9 @@ def rasm_optimallash(field, max_tomon=1280, sifat=82):
     try:
         from PIL import Image, ImageOps
     except Exception:
-        return  # Pillow bo'lmasa — jimgina o'tkazib yuboramiz
+        # Pillow bo'lmasa rasmni tekshirib bo'lmaydi — xavfsizlik uchun saqlamaymiz
+        setattr(field.instance, field.field.attname, '')
+        return
 
     try:
         img = Image.open(field.file)
@@ -34,7 +36,21 @@ def rasm_optimallash(field, max_tomon=1280, sifat=82):
         buf = BytesIO()
         img.save(buf, format='JPEG', quality=sifat, optimize=True)
     except Exception:
-        return  # buzuq rasm bo'lsa — asl faylni qoldiramiz
+        # Rasm emas (yoki buzuq) — faylni SAQLAMAYMIZ (HTML/skript yuklashdan himoya)
+        setattr(field.instance, field.field.attname, '')
+        return
 
     asos = os.path.splitext(os.path.basename(field.name))[0]
     field.save(f'{asos}.jpg', ContentFile(buf.getvalue()), save=False)
+
+
+def rasm_haqiqiymi(fayl):
+    """Yuklangan fayl haqiqiy rasm ekanini Pillow bilan tekshiradi (kengaytmaga ishonmaydi)."""
+    try:
+        from PIL import Image
+        pos = fayl.tell() if hasattr(fayl, 'tell') else 0
+        Image.open(fayl).verify()
+        fayl.seek(pos)
+        return True
+    except Exception:
+        return False

@@ -259,22 +259,22 @@ async function qidirish(){
 function renderNatijalar(list,q){
   const el=document.getElementById('natijalar');
   if(!list||!list.length){
-    el.innerHTML=`<div style="text-align:center;padding:80px 20px;color:var(--text3);"><i class="fas fa-search" style="font-size:50px;margin-bottom:16px;display:block;opacity:0.2;"></i><div style="font-size:18px;font-weight:700;margin-bottom:6px;">"${q}" topilmadi</div></div>`;
+    el.innerHTML=`<div style="text-align:center;padding:80px 20px;color:var(--text3);"><i class="fas fa-search" style="font-size:50px;margin-bottom:16px;display:block;opacity:0.2;"></i><div style="font-size:18px;font-weight:700;margin-bottom:6px;">"${escHtml(q)}" topilmadi</div></div>`;
     return;
   }
   const cards=list.map(m=>`
-    <div class="m-card"${m.lat?` onclick="koMap(${m.lat},${m.lng},'${(m.dokon_nomi||'').replace(/'/g,"\\'")}')" style="cursor:pointer;"`:''}>
-      <div class="m-img">${m.rasm?`<img src="${m.rasm}" loading="lazy" decoding="async">`:'<i class="fas fa-box" style="font-size:36px;color:var(--text3);opacity:0.4;"></i>'}${favBtnHtml(m)}</div>
+    <div class="m-card"${m.lat?` onclick="koMap(${Number(m.lat)},${Number(m.lng)},${escHtml(JSON.stringify(m.dokon_nomi||''))})" style="cursor:pointer;"`:''}>
+      <div class="m-img">${m.rasm?`<img src="${escHtml(m.rasm)}" loading="lazy" decoding="async">`:'<i class="fas fa-box" style="font-size:36px;color:var(--text3);opacity:0.4;"></i>'}${favBtnHtml(m)}</div>
       <div class="m-body">
-        <div class="m-name">${m.nomi}</div>
+        <div class="m-name">${escHtml(m.nomi)}</div>
         <div class="m-price">${m.narx.toLocaleString()} UZS</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:4px;"><i class="fas fa-store"></i> ${m.dokon_nomi}</div>
-        ${m.manzil?`<div style="font-size:11px;color:var(--text3);"><i class="fas fa-map-pin"></i> ${m.manzil}</div>`:''}
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;"><i class="fas fa-store"></i> ${escHtml(m.dokon_nomi)}</div>
+        ${m.manzil?`<div style="font-size:11px;color:var(--text3);"><i class="fas fa-map-pin"></i> ${escHtml(m.manzil)}</div>`:''}
         ${m.masofa!==null?`<div class="m-masofa"><i class="fas fa-route"></i> ${m.masofa} km</div>`:''}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          <a href="/product/mahsulot/${m.id}/" onclick="event.stopPropagation();" class="btn btn-primary btn-sm"><i class="fas fa-eye"></i> Ko'rish</a>
-          ${m.lat?`<button type="button" onclick="event.stopPropagation();koMap(${m.lat},${m.lng},'${(m.dokon_nomi||'').replace(/'/g,"\\'")}')" class="btn btn-outline btn-sm"><i class="fas fa-map-marker-alt"></i> Xarita</button>`:''}
-          <span style="font-size:12px;color:var(--text3);align-self:center;">Qoldi: ${m.soni}</span>
+          <a href="/product/mahsulot/${Number(m.id)}/" onclick="event.stopPropagation();" class="btn btn-primary btn-sm"><i class="fas fa-eye"></i> Ko'rish</a>
+          ${m.lat?`<button type="button" onclick="event.stopPropagation();koMap(${Number(m.lat)},${Number(m.lng)},${escHtml(JSON.stringify(m.dokon_nomi||''))})" class="btn btn-outline btn-sm"><i class="fas fa-map-marker-alt"></i> Xarita</button>`:''}
+          <span style="font-size:12px;color:var(--text3);align-self:center;">Qoldi: ${escHtml(m.soni)}</span>
         </div>
       </div>
     </div>
@@ -327,7 +327,7 @@ function favYoz(o){ try{localStorage.setItem(FAV_KEY,JSON.stringify(o));}catch(e
 const MEHMON = {{ mehmon|yesno:"true,false" }};   // mehmon (guest) -> sevimliklar yo'q
 function favBtnHtml(m){
   if(MEHMON) return '';   // guest uchun yurakcha ko'rsatilmaydi
-  const esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
+  const esc=escHtml;
   return `<button type="button" class="fav-btn" title="Sevimlilarga qo'shish"`
     +` data-id="${esc(m.id)}" data-nomi="${esc(m.nomi)}" data-narx="${esc(m.narx)}"`
     +` data-rasm="${esc(m.rasm||'')}" data-dokon="${esc(m.dokon_nomi||'')}"`
@@ -381,16 +381,16 @@ function favKorsat(){
     return;
   }
   const cards=list.map(m=>`
-    <div class="m-card"${m.lat?` onclick="koMap(${m.lat},${m.lng},'${(m.dokon_nomi||'').replace(/'/g,"\\'")}')" style="cursor:pointer;"`:''}>
-      <div class="m-img">${m.rasm?`<img src="${m.rasm}" loading="lazy" decoding="async">`:'<i class="fas fa-box" style="font-size:36px;color:var(--text3);opacity:0.4;"></i>'}${favBtnHtml(m)}</div>
+    <div class="m-card"${m.lat?` onclick="koMap(${Number(m.lat)},${Number(m.lng)},${escHtml(JSON.stringify(m.dokon_nomi||''))})" style="cursor:pointer;"`:''}>
+      <div class="m-img">${m.rasm?`<img src="${escHtml(m.rasm)}" loading="lazy" decoding="async">`:'<i class="fas fa-box" style="font-size:36px;color:var(--text3);opacity:0.4;"></i>'}${favBtnHtml(m)}</div>
       <div class="m-body">
-        <div class="m-name">${m.nomi}</div>
+        <div class="m-name">${escHtml(m.nomi)}</div>
         <div class="m-price">${Number(m.narx||0).toLocaleString()} UZS</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:4px;"><i class="fas fa-store"></i> ${m.dokon_nomi||'-'}</div>
-        ${m.manzil?`<div style="font-size:11px;color:var(--text3);"><i class="fas fa-map-pin"></i> ${m.manzil}</div>`:''}
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;"><i class="fas fa-store"></i> ${escHtml(m.dokon_nomi||'-')}</div>
+        ${m.manzil?`<div style="font-size:11px;color:var(--text3);"><i class="fas fa-map-pin"></i> ${escHtml(m.manzil)}</div>`:''}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          <a href="/product/mahsulot/${m.id}/" onclick="event.stopPropagation();" class="btn btn-primary btn-sm"><i class="fas fa-eye"></i> Ko'rish</a>
-          ${m.lat?`<button type="button" onclick="event.stopPropagation();koMap(${m.lat},${m.lng},'${(m.dokon_nomi||'').replace(/'/g,"\\'")}')" class="btn btn-outline btn-sm"><i class="fas fa-map-marker-alt"></i> Xarita</button>`:''}
+          <a href="/product/mahsulot/${Number(m.id)}/" onclick="event.stopPropagation();" class="btn btn-primary btn-sm"><i class="fas fa-eye"></i> Ko'rish</a>
+          ${m.lat?`<button type="button" onclick="event.stopPropagation();koMap(${Number(m.lat)},${Number(m.lng)},${escHtml(JSON.stringify(m.dokon_nomi||''))})" class="btn btn-outline btn-sm"><i class="fas fa-map-marker-alt"></i> Xarita</button>`:''}
         </div>
       </div>
     </div>`).join('');

@@ -111,7 +111,16 @@ class Command(BaseCommand):
         if not manba.exists():
             raise CommandError(f"SQLite fayli topilmadi: {manba}")
         fayl = backup_dir / f"{manba.stem}_{vaqt}.sqlite3"
-        shutil.copy2(manba, fayl)
+        # Ishlayotgan bazadan xavfsiz nusxa: SQLite backup API (fayl nusxasi yarim
+        # yozilgan tranzaksiyani buzuq holatda olib qolishi mumkin)
+        import sqlite3
+        src = sqlite3.connect(str(manba))
+        dst = sqlite3.connect(str(fayl))
+        try:
+            src.backup(dst)
+        finally:
+            dst.close()
+            src.close()
         return fayl
 
     # ── Eski zaxiralarni tozalash ──

@@ -1,6 +1,7 @@
 import json
 import time
-import random
+import secrets
+import hashlib
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth import login, logout, authenticate
@@ -13,6 +14,9 @@ from django.core.mail import send_mail
 from django.core.cache import cache
 from django.utils import timezone
 from django.db.models import Avg
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from .services import client_ip, foydalanuvchi_kirishlarini_bekor_qil
 from .models import (
     CustomUser, DokonEgasiProfil, SotuvchiProfil,
     ZavodProfil, YetkazibBeruvchiProfil, MijozProfil, Reyting
@@ -27,9 +31,25 @@ def _reg_keys(email):
     return (f'reg_code:{email}', f'reg_attempts:{email}', f'reg_block:{email}')
 
 
+def test_rejimi():
+    """Email sozlanmagan LOKAL rejim: kod ekranda ko'rsatiladi. Productionda (DEBUG=False)
+    hech qachon True bo'lmaydi — kodni so'ragan odamga ko'rsatish akkauntni egallashga olib keladi."""
+    return settings.DEBUG and 'console' in settings.EMAIL_BACKEND
+
+
+def _kod_yarat():
+    return f"{secrets.randbelow(900000) + 100000}"
+
+
+def _email_sozlanmagan_prod():
+    return 'console' in settings.EMAIL_BACKEND and not settings.DEBUG
+
+
 def _send_email_code(email, code, maqsad="Tasdiqlash"):
     """Emailga kod yuboradi. Xatoda exception ko'tariladi.
-    Qaytaradi: True (test/console rejimi) yoki False (haqiqiy yuborildi)."""
+    Qaytaradi: True (lokal test rejimi) yoki False (haqiqiy yuborildi)."""
+    if _email_sozlanmagan_prod():
+        raise RuntimeError("Email sozlanmagan (EMAIL_HOST_PASSWORD yo'q)")
     send_mail(
         subject=f"Savdoyim — {maqsad} kodi",
         message=(
@@ -42,7 +62,7 @@ def _send_email_code(email, code, maqsad="Tasdiqlash"):
         recipient_list=[email],
         fail_silently=False,
     )
-    return 'console' in settings.EMAIL_BACKEND
+    return test_rejimi()
 
 
 @require_POST
@@ -86,7 +106,12 @@ def send_register_code(request):
     # 3) Yangi kod — eski kod avtomatik bekor bo'ladi (faqat oxirgisi ishlaydi)
     attempts += 1
     cache.set(attempts_key, attempts, REG_BLOCK_TTL)
-    code = f"{random.randint(100000, 999999)}"
+    # IP bo'yicha ham cheklov (turli emaillar bilan email kvotasini tugatishdan himoya)
+    ip_kalit = f"reg_ip:{client_ip(request)}"
+    if cache.get(ip_kalit, 0) >= 20:
+        return JsonResponse({'ok': False, 'error': "Juda ko'p urinish. Birozdan so'ng qayta urining."}, status=429)
+    cache.set(ip_kalit, cache.get(ip_kalit, 0) + 1, 3600)
+    code = _kod_yarat()
     cache.set(code_key, code, REG_CODE_TTL)
     try:
         test_rejim = _send_email_code(email, code, "Ro'yxatdan o'tish")
@@ -100,7 +125,7 @@ def send_register_code(request):
         'attempts_left': REG_MAX_SEND - attempts,
     }
     if test_rejim:
-        resp['code'] = code   # email sozlanmagan bo'lsa test uchun kodni ko'rsatamiz
+        resp['code'] = code   # faqat lokal (DEBUG) rejimda, email sozlanmagan bo'lsa
     return JsonResponse(resp)
 
 
@@ -191,13 +216,13 @@ LOGIN_MAX_URINISH = 7          # necha marta xato -> bloklanadi
 LOGIN_BLOK_DAQIQA = 15         # necha daqiqaga bloklanadi
 
 
-def _client_ip(request):
-    xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
-    return xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR', '?')
-
-
 def _login_kalit(request, username):
-    return f"login_fail:{_client_ip(request)}:{(username or '').lower()}"
+    return f"login_fail:{client_ip(request)}:{(username or '').lower()}"
+
+
+def _login_hisob_kaliti(username):
+    # IP'dan qat'i nazar bitta hisobga urinishlar (IP almashtirib tanlashdan himoya)
+    return f"login_fail_user:{(username or '').lower()}"
 
 
 def login_view(request):
@@ -208,7 +233,8 @@ def login_view(request):
         password = request.POST.get('password', '')
         kalit = _login_kalit(request, username)
         # Juda ko'p xato urinishdan keyin vaqtincha bloklaymiz
-        if cache.get(kalit, 0) >= LOGIN_MAX_URINISH:
+        hisob_kalit = _login_hisob_kaliti(username)
+        if cache.get(kalit, 0) >= LOGIN_MAX_URINISH or cache.get(hisob_kalit, 0) >= LOGIN_MAX_URINISH * 4:
             messages.error(request, f"Juda ko'p urinish. {LOGIN_BLOK_DAQIQA} daqiqadan keyin qayta urining.")
             return render(request, 'login.html')
         user = authenticate(request, username=username, password=password)
@@ -217,10 +243,12 @@ def login_view(request):
                 messages.error(request, "Hisobingiz hali tasdiqlanmagan!")
                 return render(request, 'login.html')
             cache.delete(kalit)   # muvaffaqiyatli kirish -> hisoblagichni tozalaymiz
+            cache.delete(hisob_kalit)
             login(request, user)
             return _redirect_by_role(user)
         # Xato urinishni qayd qilamiz
         cache.set(kalit, cache.get(kalit, 0) + 1, LOGIN_BLOK_DAQIQA * 60)
+        cache.set(hisob_kalit, cache.get(hisob_kalit, 0) + 1, LOGIN_BLOK_DAQIQA * 60)
         messages.error(request, "Login yoki parol noto'g'ri!")
     return render(request, 'login.html')
 
@@ -238,12 +266,14 @@ def register_view(request):
         rol = data.get('rol', '')
 
         email = data.get('email', '').strip().lower()
-        passport = data.get('passport', '').strip()
         soliq_raqami = data.get('soliq_raqami', '').strip()
         mashina_raqami = data.get('mashina_raqami', '').strip()
 
         if not username or not password or not rol:
             messages.error(request, "Barcha maydonlarni to'ldiring!")
+            return render(request, 'register.html')
+        if rol not in ('dokon_egasi', 'sotuvchi', 'zavod', 'yetkazib_beruvchi', 'mijoz'):
+            messages.error(request, "Noto'g'ri rol tanlandi!")
             return render(request, 'register.html')
 
         # Ism — faqat harflar
@@ -262,6 +292,11 @@ def register_view(request):
         if len(password) < 6:
             messages.error(request, "Parol kamida 6 ta belgidan iborat bo'lishi kerak!")
             return render(request, 'register.html')
+        try:
+            validate_password(password, CustomUser(username=username, email=email, first_name=ism))
+        except ValidationError as e:
+            messages.error(request, "Parol juda oddiy: " + " ".join(e.messages))
+            return render(request, 'register.html')
 
         if CustomUser.objects.filter(username__iexact=username).exists():
             messages.error(request, "Bu username band!")
@@ -276,9 +311,7 @@ def register_view(request):
             return render(request, 'register.html')
 
         # Takroriy ro'yxatdan o'tishni oldini olish (#9)
-        if passport and CustomUser.objects.filter(passport=passport).exists():
-            messages.error(request, "Bu pasport seriyasi bilan allaqachon ro'yxatdan o'tilgan!")
-            return render(request, 'register.html')
+        # (Pasport/JSHSHR endi so'ralmaydi — POS uchun kerak emas, shaxsiy ma'lumot xavfi.)
         if soliq_raqami and (
             DokonEgasiProfil.objects.filter(soliq_raqami=soliq_raqami).exists()
             or ZavodProfil.objects.filter(soliq_raqami=soliq_raqami).exists()
@@ -321,8 +354,6 @@ def register_view(request):
         )
 
         if rol == 'dokon_egasi':
-            user.jshshr = data.get('jshshr', '')
-            user.passport = data.get('passport', '')
             user.tasdiqlangan = True
             user.save()
 
@@ -373,8 +404,15 @@ def register_view(request):
                 mahsulot_turi=data.get('mahsulot_turi', ''),
             )
             if 'hujjat' in request.FILES:
-                zp.hujjatlar = request.FILES['hujjat']
-                zp.save()
+                from .validators import hujjat_kengaytma, hujjat_hajmi
+                fayl = request.FILES['hujjat']
+                try:
+                    hujjat_kengaytma(fayl)
+                    hujjat_hajmi(fayl)
+                    zp.hujjatlar = fayl
+                    zp.save()
+                except ValidationError as e:
+                    messages.warning(request, "Hujjat qabul qilinmadi: " + " ".join(e.messages))
             messages.success(request, "Muvaffaqiyatli ro'yxatdan o'tdingiz!")
             login(request, user)
             return _redirect_by_role(user)
@@ -412,74 +450,99 @@ def logout_view(request):
     return redirect('login')
 
 
+PW_KOD_TTL = 600          # tiklash kodi 10 daqiqa amal qiladi
+PW_MAX_XATO = 5           # 5 ta noto'g'ri urinishdan keyin kod bekor qilinadi
+PW_MAX_YUBORISH = 3       # bir hisobga soatiga 3 ta kod
+PW_IP_MAX = 10            # bir IP'dan soatiga 10 ta so'rov
+
+
+def _kod_hash(code):
+    return hashlib.sha256(f"{settings.SECRET_KEY}:{code}".encode()).hexdigest()
+
+
 def forgot_password_view(request):
-    """Parolni EMAIL orqali tiklash (#1): kod yuborish -> kod + yangi parol."""
-    import random
-    from django.core.mail import send_mail
-    from django.conf import settings
+    """Parolni EMAIL orqali tiklash: kod yuborish -> kod + yangi parol.
+
+    Xavfsizlik: kod serverda (keshda) foydalanuvchi bo'yicha HASH ko'rinishida saqlanadi,
+    10 daqiqa amal qiladi va 5 ta xato urinishdan keyin bekor bo'ladi; yuborish soni
+    cheklangan; email bor-yo'qligi oshkor qilinmaydi; kod faqat lokal (DEBUG) rejimda
+    ekranda ko'rsatiladi."""
+    umumiy_xabar = ("Agar bu email ro'yxatdan o'tgan bo'lsa, unga tasdiqlash kodi yuborildi. "
+                    "Pochtangizni (va Spam papkasini) tekshiring.")
 
     if request.method == 'POST':
         action = request.POST.get('action', 'send_code')
 
         if action == 'send_code':
             email = request.POST.get('email', '').strip().lower()
-            user = CustomUser.objects.filter(email__iexact=email).first()
-            if not user:
-                messages.error(request, "Bu email manzil topilmadi!")
+            ip_kalit = f"pw_ip:{client_ip(request)}"
+            if cache.get(ip_kalit, 0) >= PW_IP_MAX:
+                messages.error(request, "Juda ko'p urinish. Birozdan so'ng qayta urining.")
                 return render(request, 'forgot_password.html', {'step': 'email'})
-            code = f"{random.randint(100000, 999999)}"
-            request.session['pw_reset_code'] = code
-            request.session['pw_reset_uid'] = user.id
+            cache.set(ip_kalit, cache.get(ip_kalit, 0) + 1, 3600)
             request.session['pw_reset_email'] = email
-            test_rejim = 'console' in settings.EMAIL_BACKEND
-            try:
-                send_mail(
-                    subject="Savdoyim — Parolni tiklash kodi",
-                    message=(
-                        f"Assalomu alaykum!\n\n"
-                        f"Sizning login (username): {user.username}\n"
-                        f"Parolni tiklash kodi: {code}\n\n"
-                        f"(Login esingizdan chiqqan bo'lsa, yuqoridagi username bilan kirasiz.)\n\n"
-                        f"Agar bu so'rovni siz yubormagan bo'lsangiz, ushbu xabarni e'tiborsiz qoldiring.\n\n"
-                        f"Savdoyim jamoasi"
-                    ),
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[email],
-                    fail_silently=False,
-                )
-                if test_rejim:
-                    # Gmail App Password o'rnatilmagan — email jo'natilmaydi, kodni ekranda ko'rsatamiz
-                    messages.success(request, f"TEST REJIMI (email sozlanmagan). Kodingiz: {code}")
-                else:
-                    messages.success(request, f"Tasdiqlash kodi {email} manziliga yuborildi. Pochtangizni (va Spam papkasini) tekshiring.")
-            except Exception:
-                messages.error(request, "Email hozircha yuborilmadi. Iltimos, birozdan so'ng qayta urinib ko'ring.")
-                return render(request, 'forgot_password.html', {'step': 'email'})
+
+            user = CustomUser.objects.filter(email__iexact=email).first() if email else None
+            if user:
+                yub_kalit = f"pw_send:{user.id}"
+                if cache.get(yub_kalit, 0) < PW_MAX_YUBORISH:
+                    cache.set(yub_kalit, cache.get(yub_kalit, 0) + 1, 3600)
+                    code = _kod_yarat()
+                    cache.set(f"pw_code:{user.id}", {'h': _kod_hash(code), 'xato': 0}, PW_KOD_TTL)
+                    try:
+                        if _email_sozlanmagan_prod():
+                            raise RuntimeError("Email sozlanmagan")
+                        send_mail(
+                            subject="Savdoyim — Parolni tiklash kodi",
+                            message=(
+                                f"Assalomu alaykum!\n\n"
+                                f"Sizning login (username): {user.username}\n"
+                                f"Parolni tiklash kodi: {code} (10 daqiqa amal qiladi)\n\n"
+                                f"Agar bu so'rovni siz yubormagan bo'lsangiz, ushbu xabarni e'tiborsiz qoldiring.\n\n"
+                                f"Savdoyim jamoasi"
+                            ),
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=[user.email],
+                            fail_silently=False,
+                        )
+                        if test_rejimi():
+                            messages.info(request, f"LOKAL TEST REJIMI (email sozlanmagan). Kod: {code}")
+                    except Exception:
+                        cache.delete(f"pw_code:{user.id}")
+                        messages.error(request, "Email hozircha yuborilmadi. Iltimos, birozdan so'ng qayta urinib ko'ring.")
+                        return render(request, 'forgot_password.html', {'step': 'email'})
+            messages.success(request, umumiy_xabar)
             return render(request, 'forgot_password.html', {'step': 'code', 'email': email})
 
         elif action == 'reset':
             code = request.POST.get('code', '').strip()
             new_password = request.POST.get('new_password', '')
-            sess_code = request.session.get('pw_reset_code')
-            uid = request.session.get('pw_reset_uid')
             email = request.session.get('pw_reset_email', '')
-            if not sess_code or not uid:
-                messages.error(request, "Sessiya muddati tugadi. Qaytadan urinib ko'ring.")
+            user = CustomUser.objects.filter(email__iexact=email).first() if email else None
+            yozuv = cache.get(f"pw_code:{user.id}") if user else None
+            if not yozuv:
+                messages.error(request, "Kod noto'g'ri yoki muddati tugagan. Qaytadan kod oling.")
                 return render(request, 'forgot_password.html', {'step': 'email'})
-            if code != sess_code:
+            if not secrets.compare_digest(yozuv['h'], _kod_hash(code)):
+                yozuv['xato'] += 1
+                if yozuv['xato'] >= PW_MAX_XATO:
+                    cache.delete(f"pw_code:{user.id}")
+                    messages.error(request, "Juda ko'p noto'g'ri urinish. Qaytadan kod oling.")
+                    return render(request, 'forgot_password.html', {'step': 'email'})
+                cache.set(f"pw_code:{user.id}", yozuv, PW_KOD_TTL)
                 messages.error(request, "Kod noto'g'ri!")
                 return render(request, 'forgot_password.html', {'step': 'code', 'email': email})
-            if len(new_password) < 6:
-                messages.error(request, "Yangi parol kamida 6 ta belgidan iborat bo'lishi kerak!")
+            try:
+                validate_password(new_password, user)
+            except ValidationError as e:
+                messages.error(request, "Yangi parol: " + " ".join(e.messages))
                 return render(request, 'forgot_password.html', {'step': 'code', 'email': email})
-            user = CustomUser.objects.filter(id=uid).first()
-            if not user:
-                messages.error(request, "Foydalanuvchi topilmadi!")
-                return render(request, 'forgot_password.html', {'step': 'email'})
+            cache.delete(f"pw_code:{user.id}")
             user.set_password(new_password)
             user.save()
-            for k in ('pw_reset_code', 'pw_reset_uid', 'pw_reset_email'):
-                request.session.pop(k, None)
+            # Parol tiklandi -> eski sessiyalar, API token va Telegram bog'lanishi bekor
+            foydalanuvchi_kirishlarini_bekor_qil(user)
+            request.session.pop('pw_reset_email', None)
             messages.success(request, "Parol muvaffaqiyatli o'zgartirildi! Endi kirishingiz mumkin.")
             return redirect('login')
 
@@ -816,6 +879,8 @@ def sotuvchi_ruxsat(request):
                 s.save()
                 from .services import NotificationService
                 NotificationService.send_sotuvchi_tasdiq(s, False)
+                # Rad etilgan sotuvchining barcha kirishlari (sessiya, API token, Telegram) bekor
+                foydalanuvchi_kirishlarini_bekor_qil(s.foydalanuvchi)
                 messages.success(request, f"❌ {s.foydalanuvchi.first_name or s.foydalanuvchi.username} rad etildi.")
             else:
                 s.save()
@@ -959,10 +1024,16 @@ def settings_action(request):
             return JsonResponse({'ok': False, 'message': 'Yangi parol kamida 6 belgidan iborat bo\'lsin.'}, status=400)
         if yangi != yangi2:
             return JsonResponse({'ok': False, 'message': 'Yangi parollar mos kelmadi.'}, status=400)
+        try:
+            validate_password(yangi, user)
+        except ValidationError as e:
+            return JsonResponse({'ok': False, 'message': " ".join(e.messages)}, status=400)
         user.set_password(yangi)
         user.save(update_fields=['password'])
         from django.contrib.auth import update_session_auth_hash
         update_session_auth_hash(request, user)
+        # Boshqa qurilmalardagi sessiyalar, API token va Telegram bog'lanishi bekor qilinadi
+        foydalanuvchi_kirishlarini_bekor_qil(user, joriy_sessiya=request.session.session_key)
         return JsonResponse({'ok': True, 'message': 'Parol muvaffaqiyatli o\'zgartirildi.'})
 
     # ── Email o'zgartirish: 1) kod yuborish ──
@@ -972,7 +1043,7 @@ def settings_action(request):
             return JsonResponse({'ok': False, 'message': 'To\'g\'ri email kiriting.'}, status=400)
         if CustomUser.objects.filter(email__iexact=yangi).exclude(id=user.id).exists():
             return JsonResponse({'ok': False, 'message': 'Bu email allaqachon ro\'yxatdan o\'tgan.'}, status=400)
-        kod = str(random.randint(100000, 999999))
+        kod = _kod_yarat()
         cache.set(f'email_change:{user.id}', {'email': yangi, 'kod': kod}, 600)
         try:
             send_mail('Savdoyim — email tasdiqlash',
@@ -1136,18 +1207,23 @@ _PWA_MANIFEST = {
 }
 
 _PWA_SW = """
-const CACHE='savdoyim-v1';
-const CORE=['/','/static/i18n.js','/static/logod.png','/static/logol.png'];
+// v2: shaxsiy sahifalar (hisobot, qarzlar, kassa) KESHLANMAYDI — boshqa odam shu
+// qurilmada offline ochsa ko'rmasin. Faqat statik fayllar va rasmlar keshlanadi.
+const CACHE='savdoyim-v2';
+const CORE=['/static/i18n.js','/static/logod.png','/static/logol.png'];
+const OFFLINE='<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Internet yo\'q</title><body style="font-family:sans-serif;text-align:center;padding:60px 20px"><h2>Internet aloqasi yo\'q</h2><p>Aloqa tiklangach sahifani yangilang.</p></body>';
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).catch(()=>{}));self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});
 self.addEventListener('fetch',e=>{
   const req=e.request; if(req.method!=='GET')return;
   const url=new URL(req.url); if(url.origin!==location.origin)return;
   if(url.pathname.startsWith('/static/')||url.pathname.startsWith('/media/')){
-    e.respondWith(caches.match(req).then(r=>r||fetch(req).then(res=>{const cl=res.clone();caches.open(CACHE).then(c=>c.put(req,cl));return res;}).catch(()=>r)));
+    e.respondWith(caches.match(req).then(r=>r||fetch(req).then(res=>{if(res.ok){const cl=res.clone();caches.open(CACHE).then(c=>c.put(req,cl));}return res;})));
     return;
   }
-  e.respondWith(fetch(req).then(res=>{const cl=res.clone();caches.open(CACHE).then(c=>c.put(req,cl));return res;}).catch(()=>caches.match(req).then(r=>r||caches.match('/'))));
+  if(req.mode==='navigate'){
+    e.respondWith(fetch(req).catch(()=>new Response(OFFLINE,{headers:{'Content-Type':'text/html; charset=utf-8'}})));
+  }
 });
 """
 

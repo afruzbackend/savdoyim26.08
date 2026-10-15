@@ -23,13 +23,69 @@ class ServiceError(Exception):
         super().__init__(message)
 
 
+def foydalanuvchi_dokoni(user):
+    """YAGONA manba: foydalanuvchining do'koni yoki None.
+
+    Do'kon egasi -> o'z do'koni. Sotuvchi -> faqat TASDIQLANGAN bo'lsa (sorov_holati
+    'tasdiqlangan', user.tasdiqlangan va is_active) biriktirilgan do'kon. Kutilayotgan yoki
+    rad etilgan sotuvchi hech qayerda (web, API, Telegram bot) do'kon ma'lumotini ko'rmaydi."""
+    if not user or not getattr(user, 'is_authenticated', False) or not getattr(user, 'is_active', False):
+        return None
+    rol = getattr(user, 'rol', None)
+    if rol == 'dokon_egasi':
+        try:
+            return user.dokon_profil
+        except Exception:
+            return None
+    if rol == 'sotuvchi':
+        if not getattr(user, 'tasdiqlangan', False):
+            return None
+        try:
+            sp = user.sotuvchi_profil
+        except Exception:
+            return None
+        if sp.sorov_holati == 'tasdiqlangan':
+            return sp.dokon
+    return None
+
+
 def client_ip(request):
+    """Mijoz IP manzili. X-Forwarded-For faqat TRUST_X_FORWARDED_FOR=True (nginx orqasida)
+    bo'lganda ishlatiladi va uning OXIRGI qiymati olinadi (uni proxy qo'shadi; boshidagi
+    qiymatlarni mijoz o'zi yozib yuborishi mumkin)."""
     if not request:
         return None
-    xff = request.META.get('HTTP_X_FORWARDED_FOR')
-    if xff:
-        return xff.split(',')[0].strip()
+    from django.conf import settings
+    if getattr(settings, 'TRUST_X_FORWARDED_FOR', False):
+        xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
+        oxirgi = xff.split(',')[-1].strip() if xff else ''
+        if oxirgi:
+            return oxirgi
     return request.META.get('REMOTE_ADDR')
+
+
+def foydalanuvchi_kirishlarini_bekor_qil(user, joriy_sessiya=None):
+    """Foydalanuvchining barcha kirishlarini bekor qiladi: web sessiyalar, API token
+    va Telegram bog'lanishi. Sotuvchi rad etilganda / parol tiklanganda chaqiriladi.
+    `joriy_sessiya` — saqlab qolinadigan sessiya kaliti (parol o'zgartirgan o'zi)."""
+    from django.contrib.sessions.models import Session
+    from django.utils import timezone
+    from .models import TelegramLink
+    try:
+        from rest_framework.authtoken.models import Token
+        Token.objects.filter(user=user).delete()
+    except Exception:
+        pass
+    TelegramLink.objects.filter(foydalanuvchi=user).delete()
+    uid = str(user.pk)
+    for sess in Session.objects.filter(expire_date__gt=timezone.now()).iterator():
+        if sess.session_key == joriy_sessiya:
+            continue
+        try:
+            if sess.get_decoded().get('_auth_user_id') == uid:
+                sess.delete()
+        except Exception:
+            continue
 
 
 class AuditService:

@@ -66,12 +66,12 @@ function qidirUser() {
       }
       box.innerHTML = res.natijalar.map(u => `
         <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);">
-          <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">${(u.ism||'?').charAt(0).toUpperCase()}</div>
+          <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">${escHtml((u.ism||'?').charAt(0).toUpperCase())}</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-weight:600;font-size:14px;">${u.kompaniya || u.ism}</div>
-            <div style="font-size:11px;color:var(--text3);">@${u.username}${u.rol ? ' · ' + u.rol : ''}</div>
+            <div style="font-weight:600;font-size:14px;">${escHtml(u.kompaniya || u.ism)}</div>
+            <div style="font-size:11px;color:var(--text3);">@${escHtml(u.username)}${u.rol ? ' · ' + escHtml(u.rol) : ''}</div>
           </div>
-          <button type="button" class="btn btn-primary btn-sm" onclick="boshlaChat(${u.id})"><i class="fas fa-comment"></i> Chat</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="boshlaChat(${Number(u.id)})"><i class="fas fa-comment"></i> Chat</button>
         </div>`).join('');
     } catch (e) { showToast('Qidiruvda xatolik', 'error'); }
   }, 250);

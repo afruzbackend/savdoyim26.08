@@ -93,7 +93,7 @@ function renderItems() {
   el.innerHTML = `<div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:10px;">
     ${malar.map((m, i) => `
       <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
-        <span style="font-size:14px;">${m.nomi}</span>
+        <span style="font-size:14px;">${escHtml(m.nomi)}</span>
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="color:var(--accent);font-weight:700;">${m.soni} ta</span>
           <i class="fas fa-times" onclick="ochir(${i})" style="cursor:pointer;color:var(--text3);"></i>

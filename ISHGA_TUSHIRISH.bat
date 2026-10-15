@@ -2,6 +2,8 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 set PYTHONIOENCODING=utf-8
+rem Lokal ishlab chiqish rejimi (productionda .env da DJANGO_DEBUG=False)
+if not defined DJANGO_DEBUG set DJANGO_DEBUG=True
 echo ================================================
 echo   SAVDOYIM - Server + Telegram bot (birga)
 echo ================================================

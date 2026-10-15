@@ -78,8 +78,10 @@ class ReviewService:
             )
         except IntegrityError:
             raise ServiceError("Siz bu mahsulotga allaqachon sharh yozgansiz.", 409)
+        from users.image_utils import rasm_haqiqiymi
         for r in rasmlar[:3]:
-            SharhRasm.objects.create(sharh=sharh, rasm=r)
+            if rasm_haqiqiymi(r):
+                SharhRasm.objects.create(sharh=sharh, rasm=r)
         ReviewStats.invalidate(mahsulot.id)
         AuditService.log(user, 'review_created', sharh, f"{yulduz}*", request)
         return sharh
@@ -99,8 +101,10 @@ class ReviewService:
             sharh.izoh = izoh.strip()
         # xaridor_tasdiqlangan hech qachon o'zgartirilmaydi
         sharh.save(update_fields=['yulduz', 'izoh', 'yangilangan'])
+        from users.image_utils import rasm_haqiqiymi
         for r in yangi_rasmlar[:max(0, 3 - joriy)]:
-            SharhRasm.objects.create(sharh=sharh, rasm=r)
+            if rasm_haqiqiymi(r):
+                SharhRasm.objects.create(sharh=sharh, rasm=r)
         ReviewStats.invalidate(sharh.mahsulot_id)
         AuditService.log(user, 'review_updated', sharh, '', request)
         return sharh

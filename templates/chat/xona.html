@@ -76,7 +76,7 @@ function addMsg(x) {
   if (hint) hint.remove();
   const d = document.createElement('div');
   d.className = `msg ${x.men ? 'men' : 'boshqa'}`;
-  d.innerHTML = `<div class="bubble">${x.matn}</div><div class="meta">${x.vaqt}</div>`;
+  d.innerHTML = `<div class="bubble">${escHtml(x.matn)}</div><div class="meta">${escHtml(x.vaqt)}</div>`;
   el.appendChild(d);
   scroll();
 }

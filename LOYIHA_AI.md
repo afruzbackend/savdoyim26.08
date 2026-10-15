@@ -25,7 +25,7 @@ Til: interfeys **o'zbekcha**. Vaqt zonasi: **Asia/Tashkent**. Pul birligi: **so'
 
 | Qatlam | Texnologiya |
 |--------|-------------|
-| Backend | Django 4.2.x (Python) |
+| Backend | Django 5.2 LTS (Python 3.12) |
 | API | Django REST Framework (TokenAuth + SessionAuth) |
 | DB | SQLite (default) yoki PostgreSQL (`DB_ENGINE=postgres`) |
 | Frontend | Django templates + vanilla JS (SPA emas), PWA (offline, `sw.js`) |
@@ -260,6 +260,18 @@ CORS cheklanadi. Lokal/telefon test uchun `CSRF_TRUSTED_ORIGINS` ga LAN IP avtom
 **🟡 Ochiq (kichik):** chegirma UI web'да yo'q (backend naqd/kartaга chegirmani 0 qiladi) —
 runtime bug emas, UI qo'shилганда hal bo'ladi. Buyurtma olib ketilishida to'lov turi
 har doim `naqd` (kelajakда tanlov qo'shish mumkin).
+
+**🔒 Xavfsizlik qoidalari (audit 2026-10-16, buzmang):**
+- Do'konni aniqlash — FAQAT `users.services.foydalanuvchi_dokoni` (boshqa `_get_dokon`/
+  `dokon_aniqla`/`sotuvchi_dokoni` shunga yo'naltirilgan). Kutilayotgan/rad etilgan sotuvchi → None.
+- Hisobot, eksport, AI, avto-hisobot, KPI, ombordan chiqarish — faqat do'kon egasi (`_egasi_dokoni`).
+- Sotuvchi rad etilsa / parol o'zgarsa → `foydalanuvchi_kirishlarini_bekor_qil` (sessiya, token, Telegram).
+- Parol tiklash kodi keshda hash bilan, 10 daqiqa, 5 urinish; kod faqat `DEBUG=True` da ekranda.
+- `settings.py` fail-closed: `DEBUG` standart False; prod'da `DJANGO_SECRET_KEY` va
+  `DJANGO_ALLOWED_HOSTS` bo'lmasa server ishga tushmaydi. Lokal: `ISHGA_TUSHIRISH.bat` DEBUG=True qo'yadi.
+- JS'da server/foydalanuvchi matnini `innerHTML` ga faqat `escHtml()` orqali qo'ying (base.html).
+- Media: faqat rasm kengaytmalari ochiq; rasm bo'lmagan yuklama saqlanmaydi; zavod hujjatlari faqat staff.
+- Pasport/JSHSHR endi so'ralmaydi. Testlar: `users/tests_xavfsizlik.py`.
 
 Yaxshi tomonlari (buzmang): kassa sotuvi, refund, smena va qarz to'lash oqimlari
 **atomik va poyga-himoyali** yozilgan (`UniqueConstraint`, `F()`, atomik `update`).

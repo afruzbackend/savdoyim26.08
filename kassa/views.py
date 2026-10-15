@@ -71,17 +71,16 @@ def _son(d):
 
 
 def _get_dokon(user):
-    if user.rol == 'dokon_egasi':
-        try:
-            return user.dokon_profil
-        except DokonEgasiProfil.DoesNotExist:
-            return None
-    if user.rol == 'sotuvchi':
-        try:
-            return user.sotuvchi_profil.dokon
-        except Exception:
-            return None
-    return None
+    """Do'kon egasi yoki TASDIQLANGAN sotuvchining do'koni (yagona manba)."""
+    from users.services import foydalanuvchi_dokoni
+    return foydalanuvchi_dokoni(user)
+
+
+def _egasi_dokoni(user):
+    """Faqat DO'KON EGASI uchun do'kon (hisobot, eksport, AI, sozlamalar). Kassir -> None."""
+    if getattr(user, 'rol', None) != 'dokon_egasi':
+        return None
+    return _get_dokon(user)
 
 
 def _ochiq_smena(dokon):
@@ -336,41 +335,30 @@ def smena_yopish(request):
         messages.error(request, "Ochiq smena yo'q.")
         return redirect('kassa')
 
-    smena.holat = 'yopiq'
-    smena.yopilgan = timezone.now()
-    smena.save(update_fields=['holat', 'yopilgan'])
-
-    # Smena hisobotini hisoblaymiz
-    from .hisobot_service import _yig, pul
-    data = _yig(dokon, smena.ochilgan, smena.yopilgan)
-    sotuvchi = smena.sotuvchi.first_name if smena.sotuvchi and smena.sotuvchi.first_name \
-        else (smena.sotuvchi.username if smena.sotuvchi else '—')
-    davomiylik = smena.yopilgan - smena.ochilgan
-    soat = int(davomiylik.total_seconds() // 3600)
-    daqiqa = int((davomiylik.total_seconds() % 3600) // 60)
-
-    # ── Pul verkasi (Z-hisobot) ──
-    # Kassir real sanagan naqdни tizim kutgan naqd bilan solishtiramiz.
-    # Kutilgan naqd = boshlang'ich naqd + naqd sotuv − naqd cheklar qaytarilgani.
+    # Kassir real sanagan naqd (ixtiyoriy) — verka uchun
+    real_naqd = None
     real_naqd_raw = str(request.POST.get('real_naqd', '') or '').strip()
     if real_naqd_raw != '':
         try:
             real_naqd = _decimal(real_naqd_raw)
-            if real_naqd < 0:
-                real_naqd = Decimal('0')
         except ValueError:
             real_naqd = None
-        if real_naqd is not None:
-            naqd_qaytarilgan = Qaytarish.objects.filter(
-                dokon=dokon, chek__tolash_turi='naqd',
-                yaratilgan__gte=smena.ochilgan, yaratilgan__lt=smena.yopilgan,
-            ).aggregate(s=Sum('summa'))['s'] or Decimal('0')
-            kutilgan = ((smena.boshlangich_naqd or Decimal('0'))
-                        + (data['naqd'] or Decimal('0')) - naqd_qaytarilgan)
-            smena.real_naqd = real_naqd
-            smena.kutilgan_naqd = kutilgan
-            smena.naqd_farq = real_naqd - kutilgan
-            smena.save(update_fields=['real_naqd', 'kutilgan_naqd', 'naqd_farq'])
+
+    # Yopish + verka — YAGONA manba (savdo_service.smena_yop): API bilan bir xil hisob,
+    # smena davomida naqd to'langan qarzlar ham kutilgan naqdga qo'shiladi.
+    from .savdo_service import smena_yop, SavdoXato
+    try:
+        smena, data = smena_yop(dokon, real_naqd=real_naqd)
+    except SavdoXato as e:
+        messages.error(request, e.message)
+        return redirect('kassa')
+
+    from .hisobot_service import pul
+    from django.utils.html import escape as _esc
+    sotuvchi = smena.sotuvchi.first_name if smena.sotuvchi and smena.sotuvchi.first_name         else (smena.sotuvchi.username if smena.sotuvchi else '—')
+    davomiylik = smena.yopilgan - smena.ochilgan
+    soat = int(davomiylik.total_seconds() // 3600)
+    daqiqa = int((davomiylik.total_seconds() % 3600) // 60)
 
     # Sotuvchining o'rtacha reytingi (mijozlar bahosi)
     reyting_qatori = None
@@ -385,8 +373,8 @@ def smena_yopish(request):
 
     matn = [
         "🔒 <b>Smena yopildi</b>",
-        f"🏪 {dokon.dokon_nomi}",
-        f"👤 Sotuvchi: <b>{sotuvchi}</b>",
+        f"🏪 {_esc(dokon.dokon_nomi)}",
+        f"👤 Sotuvchi: <b>{_esc(sotuvchi)}</b>",
     ]
     if reyting_qatori:
         matn.append(reyting_qatori)
@@ -419,7 +407,7 @@ def smena_yopish(request):
     if data['top']:
         matn.append("\n🏆 <b>Eng ko'p sotilgan:</b>")
         for i, mm in enumerate(data['top'][:5], 1):
-            matn.append(f"  {i}. {mm['nomi']} — {mm['jami_soni']} dona · {pul(mm['summa'])}")
+            matn.append(f"  {i}. {_esc(mm['nomi'])} — {mm['jami_soni']} dona · {pul(mm['summa'])}")
 
     # Do'kon egasiga Telegramга yuboramiz
     link = TelegramLink.objects.filter(foydalanuvchi=dokon.foydalanuvchi).first()
@@ -774,6 +762,8 @@ def qaytarish_qil(request):
         return redirect(f"{reverse('qaytarish')}?q={chek.id}")
 
     manba = "kassadan" if kassadan else "qarzdan"
+    from users.services import AuditService
+    AuditService.log(request.user, 'qaytarish', chek, f"{jami_summa} UZS {manba}", request)
     messages.success(
         request,
         f"✅ {jami_summa:,.0f} UZS qaytarildi ({manba}). Tovar omborga qaytdi.")
@@ -799,7 +789,7 @@ def qarz_royxat(request):
 @login_required
 def sotuvchilar_kpi(request):
     """Do'kon sotuvchilarining KPI reytingi — bugungi va oylik savdo, cheklar, baho."""
-    dokon = _get_dokon(request.user)
+    dokon = _egasi_dokoni(request.user)
     if not dokon:
         return redirect('login')
     from django.db.models import Sum, Count, Avg
@@ -849,18 +839,20 @@ def qarz_tolash(request, qarz_id):
         return JsonResponse({'error': "Ruxsat yo'q"}, status=403)
     from .savdo_service import qarz_tolash_yadro
     if qarz_tolash_yadro(dokon, qarz_id):
+        from users.services import AuditService
+        AuditService.log(request.user, 'qarz_tolandi', None, f"qarz #{qarz_id}", request)
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'error': "Topilmadi yoki allaqachon to'langan"}, status=404)
 
 
 @login_required
 def hisobot_view(request):
-    dokon = _get_dokon(request.user)
+    dokon = _egasi_dokoni(request.user)
     if not dokon:
         return redirect('login')
 
     davr = request.GET.get('davr', 'kunlik')
-    bugun = timezone.now().date()
+    bugun = timezone.localdate()
 
     # Boshlanish sanasi
     if davr == 'kunlik':
@@ -924,7 +916,7 @@ def hisobot_view(request):
 @require_POST
 def avto_hisobot_saqlash(request):
     """Hisobot sahifasidagi 'avtomatik yuborish vaqti' sozlamasini saqlaydi."""
-    dokon = _get_dokon(request.user)
+    dokon = _egasi_dokoni(request.user)
     if not dokon:
         return redirect('login')
     from datetime import datetime as _dt
@@ -978,7 +970,7 @@ def hisobot_export(request, fmt):
     from django.http import HttpResponse, Http404
     from .hisobot_service import davr_hisobot, kunlik_hisobot, hisobot_pdf, hisobot_excel
 
-    dokon = _get_dokon(request.user)
+    dokon = _egasi_dokoni(request.user)
     if not dokon:
         return redirect('login')
 
@@ -1020,6 +1012,19 @@ def hisobot_export(request, fmt):
 _DAVRLAR = ('kunlik', 'haftalik', 'oylik', 'yillik')
 
 
+AI_KUNLIK_LIMIT = 30   # bir do'kon uchun kuniga AI so'rovlari (pullik API xarajatini cheklaydi)
+
+
+def _ai_limit_ok(dokon):
+    from django.core.cache import cache
+    kalit = f"ai_limit:{dokon.pk}:{timezone.localdate().isoformat()}"
+    soni = cache.get(kalit, 0)
+    if soni >= AI_KUNLIK_LIMIT:
+        return False
+    cache.set(kalit, soni + 1, 24 * 3600)
+    return True
+
+
 def _davr_tozala(qiymat):
     return qiymat if qiymat in _DAVRLAR else 'oylik'
 
@@ -1028,10 +1033,12 @@ def _davr_tozala(qiymat):
 @require_POST
 def ai_tahlil(request):
     """Joriy davr hisobotini AI orqali tahlil qiladi (JSON)."""
-    dokon = _get_dokon(request.user)
+    dokon = _egasi_dokoni(request.user)
     if not dokon:
         return JsonResponse({'ok': False, 'xato': 'Do\'kon topilmadi.'}, status=403)
 
+    if not _ai_limit_ok(dokon):
+        return JsonResponse({'ok': False, 'xato': "Bugungi AI so'rovlar limiti tugadi. Ertaga qayta urinib ko'ring."}, status=429)
     from ai.services import hisobot_tahlil
     davr = _davr_tozala(request.GET.get('davr') or request.POST.get('davr'))
     natija = hisobot_tahlil(dokon, davr)
@@ -1042,9 +1049,12 @@ def ai_tahlil(request):
 @require_POST
 def ai_chat(request):
     """Cheklangan chat: do'kon egasi faqat hisoboti bo'yicha savol beradi (JSON)."""
-    dokon = _get_dokon(request.user)
+    dokon = _egasi_dokoni(request.user)
     if not dokon:
         return JsonResponse({'ok': False, 'xato': 'Do\'kon topilmadi.'}, status=403)
+
+    if not _ai_limit_ok(dokon):
+        return JsonResponse({'ok': False, 'xato': "Bugungi AI so'rovlar limiti tugadi. Ertaga qayta urinib ko'ring."}, status=429)
 
     if _is_json_request(request):
         try:

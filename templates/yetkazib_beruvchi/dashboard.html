@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const koords=[];
   MANZILLAR.forEach((m, i) => {
     const mk = L.marker([m.lat, m.lng]).addTo(window._manzilMarkerlar)
-      .bindPopup(`<b>${m.nomi}</b><br>${m.manzil||''}`);
+      .bindPopup(`<b>${escHtml(m.nomi)}</b><br>${escHtml(m.manzil||'')}`);
     koords.push([m.lat, m.lng]);
   });
   if (koords.length) map.fitBounds(L.latLngBounds(koords).pad(0.3));
@@ -268,7 +268,7 @@ async function optimalMarshrut(){
     tartib.forEach((m,i)=>{
       h+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border);">
         <span style="min-width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${i+1}</span>
-        <span style="flex:1;font-size:13px;"><b>${m.nomi}</b><br><span style="color:var(--text3);font-size:11px;">${m.manzil||''}</span></span>
+        <span style="flex:1;font-size:13px;"><b>${escHtml(m.nomi)}</b><br><span style="color:var(--text3);font-size:11px;">${escHtml(m.manzil||'')}</span></span>
         <button onclick="yolOch(${m.lat},${m.lng})" class="btn btn-outline btn-sm"><i class="fas fa-diamond-turn-right"></i></button>
       </div>`;
     });
@@ -330,11 +330,11 @@ async function barkodQabul() {
   const res = await apiPost('{% url "barkod_qabul" %}', { barkod });
   const natija = document.getElementById('barkod-natija');
   if (res.status === 'ok') {
-    natija.innerHTML = `<span style="color:var(--accent3);"><i class="fas fa-check-circle"></i> ${res.xabar}</span>`;
+    natija.innerHTML = `<span style="color:var(--accent3);"><i class="fas fa-check-circle"></i> ${escHtml(res.xabar)}</span>`;
     showToast(res.xabar, 'success');
     setTimeout(() => { modalYop(); location.reload(); }, 1200);
   } else {
-    natija.innerHTML = `<span style="color:var(--danger);"><i class="fas fa-times-circle"></i> ${res.error}</span>`;
+    natija.innerHTML = `<span style="color:var(--danger);"><i class="fas fa-times-circle"></i> ${escHtml(res.error)}</span>`;
     showToast(res.error, 'error');
   }
 }

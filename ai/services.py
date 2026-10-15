@@ -251,7 +251,14 @@ def hisobot_tahlil(dokon, davr='oylik'):
         matn = _sorash(CHEKLOV, user, max_tokens=800)
         return {'ok': True, 'matn': matn, 'xato': None}
     except Exception as e:
-        return {'ok': False, 'matn': '', 'xato': f'AI xatosi: {e}'}
+        return {'ok': False, 'matn': '', 'xato': _ai_xato(e)}
+
+
+def _ai_xato(e):
+    """Foydalanuvchiga ichki xato matnini (kalit, URL) ko'rsatmaymiz — faqat logga yozamiz."""
+    import logging
+    logging.getLogger(__name__).warning("AI xatosi: %s", e)
+    return "AI xizmati hozircha javob bermadi. Birozdan so'ng qayta urinib ko'ring."
 
 
 def savol_javob(dokon, savol, davr='oylik'):
@@ -273,4 +280,4 @@ def savol_javob(dokon, savol, davr='oylik'):
         matn = _sorash(CHEKLOV, user, max_tokens=600)
         return {'ok': True, 'matn': matn, 'xato': None}
     except Exception as e:
-        return {'ok': False, 'matn': '', 'xato': f'AI xatosi: {e}'}
+        return {'ok': False, 'matn': '', 'xato': _ai_xato(e)}

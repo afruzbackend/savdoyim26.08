@@ -51,17 +51,9 @@ def _son(d):
 
 
 def _get_dokon(user):
-    if user.rol == 'dokon_egasi':
-        try:
-            return user.dokon_profil
-        except DokonEgasiProfil.DoesNotExist:
-            return None
-    elif user.rol == 'sotuvchi':
-        try:
-            return user.sotuvchi_profil.dokon
-        except Exception:
-            return None
-    return None
+    """Do'kon egasi yoki TASDIQLANGAN sotuvchining do'koni (yagona manba)."""
+    from users.services import foydalanuvchi_dokoni
+    return foydalanuvchi_dokoni(user)
 
 
 def _egasi_dokon(user):
@@ -413,6 +405,9 @@ def skanner_action(request):
 
     if harakat not in ['kirim', 'chiqim']:
         return JsonResponse({'error': "Harakat noto'g'ri"}, status=400)
+    # Sotuvsiz ombordan chiqarish — faqat do'kon egasi (kassir tovarni "yo'qotib" yashira olmasin)
+    if harakat == 'chiqim' and not _egasi_dokon(request.user):
+        return JsonResponse({'error': "Ombordan chiqarish faqat do'kon egasiga ruxsat etilgan"}, status=403)
 
     # MUHIM: faqat O'Z do'koni mahsuloti. Barkod do'konlar aro takrorlanadi
     # (uniq_dokon_barkod) — dokon filtrsiz begona ombor o'zgarardi yoki bir xil
@@ -902,6 +897,12 @@ def inventarizatsiya_saqlash(request, inv_id):
         InventarizatsiyaItem.objects.bulk_update(itemlar, ['real_soni', 'izoh'])
 
         if action == 'yakunla':
+            # Shartli UPDATE: ikki marta "yakunlash" bosilsa ham ombor faqat BIR marta tuzatiladi
+            if not Inventarizatsiya.objects.filter(pk=inv.pk, holat='ochiq').update(holat='yakunlangan'):
+                messages.error(request, "Bu sanoq allaqachon yakunlangan.")
+                return redirect('inventarizatsiya_detail', inv_id=inv.id)
+            from django.db.models import F, Value
+            from django.db.models.functions import Greatest
             tuzatildi = 0
             for it in itemlar:
                 if it.real_soni is None:
@@ -909,8 +910,11 @@ def inventarizatsiya_saqlash(request, inv_id):
                 if not it.mahsulot_id:
                     continue
                 farq = it.real_soni - it.tizim_soni
-                # Omborni real songa tuzatamiz (mutlaq qiymatga o'rnatamiz)
-                Mahsulot.objects.filter(id=it.mahsulot_id).update(soni=it.real_soni)
+                # Omborga FARQNI qo'shamiz (mutlaq songa o'rnatmaymiz): sanoq davomida
+                # bo'lgan sotuvlar/kirimlar yo'qolmaydi.
+                if farq != 0:
+                    Mahsulot.objects.filter(id=it.mahsulot_id).update(
+                        soni=Greatest(F('soni') + farq, Value(0), output_field=Mahsulot._meta.get_field('soni')))
                 if farq != 0:
                     tuzatildi += 1
                     # Ombor harakati logi (kirim = ortiqcha, chiqim = kamomad)

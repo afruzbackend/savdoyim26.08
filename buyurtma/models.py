@@ -43,7 +43,7 @@ class BuyurtmaMahsulot(models.Model):
         Mahsulot, on_delete=models.SET_NULL, null=True, blank=True
     )
     mahsulot_nomi = models.CharField(max_length=200)
-    soni = models.IntegerField()
+    soni = models.DecimalField(max_digits=12, decimal_places=3, default=1)
     narx = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     def __str__(self):
@@ -202,7 +202,7 @@ class MijozBuyurtmaItem(models.Model):
         Mahsulot, on_delete=models.SET_NULL, null=True, related_name='buyurtma_itemlari'
     )
     mahsulot_nomi = models.CharField(max_length=200)
-    soni = models.PositiveIntegerField(default=1)
+    soni = models.DecimalField(max_digits=12, decimal_places=3, default=1)
     narx = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     def __str__(self):
@@ -265,13 +265,13 @@ class Savat(models.Model):
 
     @property
     def soni(self):
-        return sum((it.soni for it in self.itemlar.all()), 0)
+        return sum((it.soni for it in self.itemlar.all()), Decimal('0'))
 
 
 class SavatItem(models.Model):
     savat = models.ForeignKey(Savat, on_delete=models.CASCADE, related_name='itemlar')
     mahsulot = models.ForeignKey(Mahsulot, on_delete=models.CASCADE)
-    soni = models.PositiveIntegerField(default=1)
+    soni = models.DecimalField(max_digits=12, decimal_places=3, default=1)
 
     class Meta:
         unique_together = ('savat', 'mahsulot')

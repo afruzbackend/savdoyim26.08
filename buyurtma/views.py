@@ -101,7 +101,7 @@ def buyurtma_yuborish(request):
     for item in mahsulotlar:
         try:
             nomi = item.get('nomi', '').strip()
-            soni = int(item.get('soni', 1))
+            soni = _decimal(item.get('soni', 1), default='1')
             narx = _decimal(item.get('narx', 0))
         except (ValueError, AttributeError) as e:
             return JsonResponse({'error': str(e)}, status=400)
@@ -176,12 +176,16 @@ def savatga_qoshish(request):
     mahsulot = get_object_or_404(Mahsulot, id=data.get('mahsulot_id'), faol=True)
     if mahsulot.soni <= 0:
         return json_err("Bu mahsulot hozir mavjud emas.", status=400)
-    # Onlayn savat butun birlikda ishlaydi — ombor kasrli (kg) bo'lsa butunga tushiramiz
-    qoldiq = int(mahsulot.soni)
+    # Kasrli (kg/litr) mahsulot uchun kasrli miqdor, dona uchun butun son
+    qoldiq = mahsulot.soni if mahsulot.kasrli else int(mahsulot.soni)
     try:
-        soni = max(1, int(data.get('soni', 1)))
-    except (TypeError, ValueError):
-        soni = 1
+        soni = _decimal(data.get('soni', 1), default='1')
+        if not mahsulot.kasrli:
+            soni = Decimal(int(soni))
+        if soni <= 0:
+            soni = Decimal('1')
+    except (ValueError, InvalidOperation):
+        soni = Decimal('1')
     savat = _savat(request.user)
     item, created = SavatItem.objects.get_or_create(
         savat=savat, mahsulot=mahsulot, defaults={'soni': min(soni, qoldiq)})
@@ -192,10 +196,11 @@ def savatga_qoshish(request):
     if item.soni > qoldiq:
         item.soni = qoldiq
         item.save(update_fields=['soni'])
+        birlik_txt = mahsulot.birlik if mahsulot.kasrli else 'dona'
         return json_ok(
-            f"Omborda faqat {qoldiq} dona bor — shuncha qo'shildi.",
-            {'savat_soni': savat.soni})
-    return json_ok("Savatga qo'shildi.", {'savat_soni': savat.soni})
+            f"Omborda faqat {qoldiq} {birlik_txt} bor — shuncha qo'shildi.",
+            {'savat_soni': str(savat.soni)})
+    return json_ok("Savatga qo'shildi.", {'savat_soni': str(savat.soni)})
 
 
 @login_required
@@ -204,9 +209,14 @@ def savat_yangilash(request):
     savat = _savat(request.user)
     item = get_object_or_404(SavatItem, id=request.POST.get('item_id'), savat=savat)
     try:
-        soni = int(request.POST.get('soni', 1))
-    except (TypeError, ValueError):
-        soni = 1
+        soni = _decimal(request.POST.get('soni', 1), default='1')
+        if item.mahsulot and not item.mahsulot.kasrli:
+            soni = Decimal(int(soni))
+    except (ValueError, InvalidOperation):
+        soni = Decimal('1')
+    # Savatdagi soni ombordan oshmasin (ortiqcha buyurtmani oldini oladi)
+    if item.mahsulot and soni > item.mahsulot.soni:
+        soni = item.mahsulot.soni
     if soni <= 0:
         item.delete()
     else:
@@ -240,9 +250,13 @@ def tez_buyurtma(request):
     if not mahsulot.dokon:
         return json_err("Mahsulot do'koni topilmadi.", status=400)
     try:
-        soni = max(1, int(data.get('soni', 1)))
-    except (TypeError, ValueError):
-        soni = 1
+        soni = _decimal(data.get('soni', 1), default='1')
+        if not mahsulot.kasrli:
+            soni = Decimal(int(soni))
+        if soni <= 0:
+            soni = Decimal('1')
+    except (ValueError, InvalidOperation):
+        soni = Decimal('1')
     try:
         b = OrderService.create(request.user, mahsulot.dokon, [(mahsulot, soni)], request)
     except ServiceError as e:
@@ -313,9 +327,13 @@ def qayta_buyurtma(request, buyurtma_id):
             mavjud_emas += 1
             continue
         item, created = SavatItem.objects.get_or_create(
-            savat=savat, mahsulot=m, defaults={'soni': it.soni})
+            savat=savat, mahsulot=m, defaults={'soni': min(it.soni, m.soni)})
         if not created:
             item.soni += it.soni
+            item.save(update_fields=['soni'])
+        # Savatdagi soni ombordan oshmasin
+        if item.soni > m.soni:
+            item.soni = m.soni
             item.save(update_fields=['soni'])
         qoshildi += 1
     if qoshildi == 0:
@@ -332,7 +350,10 @@ def mijoz_buyurtma_holat(request, buyurtma_id):
     buyurtma = get_object_or_404(MijozBuyurtma, id=buyurtma_id)
     target = _req_data(request).get('holat')
     try:
-        OrderService.advance_status(buyurtma, request.user, target, request)
+        if target == 'bekor':
+            OrderService.cancel(buyurtma, request.user, request)
+        else:
+            OrderService.advance_status(buyurtma, request.user, target, request)
     except ServiceError as e:
         return json_err(e.message, e.errors, e.code)
     return json_ok("Status yangilandi.", {

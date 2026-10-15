@@ -20,7 +20,10 @@
     <form method="post" action="{% url 'savat_yangilash' %}" style="display:flex;align-items:center;gap:6px;">
       {% csrf_token %}
       <input type="hidden" name="item_id" value="{{ it.id }}">
-      <input type="number" name="soni" value="{{ it.soni }}" min="1" class="form-control" style="width:64px;padding:6px;">
+      <input type="number" name="soni" value="{{ it.soni }}"
+             min="{% if it.mahsulot.kasrli %}0.001{% else %}1{% endif %}"
+             step="{% if it.mahsulot.kasrli %}0.001{% else %}1{% endif %}"
+             class="form-control" style="width:64px;padding:6px;">
       <button class="btn btn-outline btn-sm" title="Yangilash"><i class="fas fa-sync"></i></button>
     </form>
     <div style="font-weight:800;min-width:90px;text-align:right;">{{ it.jami|floatformat:0 }} so'm</div>

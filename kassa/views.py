@@ -4,7 +4,7 @@ from datetime import timedelta, date
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Sum, F
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -20,14 +20,6 @@ from users.models import DokonEgasiProfil, TelegramLink
 
 OY_NOMLARI = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek']
 KUN_NOMLARI = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya']
-
-
-class _OmborYetarliEmas(Exception):
-    """Savdo davomida (atomik) qoldiq yetmay qolganda ko'tariladi —
-    boshqa sotuvchi bir vaqtda oxirgi tovarni sotib olgan bo'lishi mumkin."""
-    def __init__(self, nomi):
-        self.nomi = nomi
-        super().__init__(nomi)
 
 
 def _is_json_request(request):
@@ -317,8 +309,15 @@ def smena_ochish(request):
                 boshlangich = Decimal('0')
         except ValueError:
             boshlangich = Decimal('0')
-        Smena.objects.create(dokon=dokon, sotuvchi=request.user,
-                             boshlangich_naqd=boshlangich)
+        try:
+            with transaction.atomic():
+                Smena.objects.create(dokon=dokon, sotuvchi=request.user,
+                                     boshlangich_naqd=boshlangich)
+        except IntegrityError:
+            # Ikki so'rov bir vaqtda kelgan (tez ketma-ket bosish) —
+            # DB constraint ikkinchisini rad etdi, allaqachon ochiq smena bor.
+            messages.info(request, "Smena allaqachon ochiq.")
+            return redirect('kassa')
         if boshlangich:
             messages.success(request, f"✅ Smena ochildi. Boshlang'ich naqd: {boshlangich:,.0f} UZS.")
         else:
@@ -636,97 +635,23 @@ def savdo_qilish(request):
     if not mahsulotlar_data:
         return _error_response(request, 'Mahsulot tanlang', 400)
 
-    jami = Decimal('0')
-    chek_items = []
-
-    for item in mahsulotlar_data:
-        try:
-            mahsulot = Mahsulot.objects.get(id=item['id'], dokon=dokon)
-            soni = _miqdor(item['soni'], mahsulot.birlik)
-        except Mahsulot.DoesNotExist:
-            return _error_response(request, f"Mahsulot topilmadi: {item.get('id')}", 404)
-        except (KeyError, ValueError, TypeError) as e:
-            return _error_response(request, str(e), 400)
-
-        if soni <= 0:
-            return _error_response(request, "Mahsulot soni 0 dan katta bo'lishi kerak", 400)
-        if mahsulot.muddati_otgan:
-            return _error_response(request, f"{mahsulot.nomi}: yaroqlilik muddati tugagan — sotib bo'lmaydi!", 400)
-        if mahsulot.soni < soni:
-            return _error_response(request, f"{mahsulot.nomi} yetarli emas (qoldi: {_son(mahsulot.soni)})", 400)
-
-        narx = mahsulot.narx
-        jami += narx * soni
-        chek_items.append((mahsulot, soni, narx))
-
-    jami_chegirmali = max(Decimal('0'), jami - chegirma)
-
-    # "Berilgan pul" IXTIYORIY — savdoni tezlatish uchun majburiy emas.
-    # Kiritilsa qaytim hisoblanadi; bo'sh bo'lsa aniq to'lov deb qabul qilinadi
-    # va butun summa kassaga qo'shiladi (savat kabi).
-    to_langan = jami_chegirmali if tolash_turi != 'qarz' else Decimal('0')
-    qaytim = (max(Decimal('0'), berilgan - jami_chegirmali)
-              if tolash_turi == 'naqd' and berilgan > jami_chegirmali else Decimal('0'))
-
-    # ── Yozuv qismi: chek, ombor, kassa va qarz BITTA atomik tranzaksiyada ──
-    # Shu tufayli yarim yozilgan savdo bo'lmaydi (xato bo'lsa hammasi bekor
-    # qilinadi) va omborni poyga (race) sharoitida ham ortiqcha sotib bo'lmaydi:
-    # qoldiq DB tomonda F() bilan, faqat yetsagina kamaytiriladi.
+    # ── Sotuv yadrosi savdo_service'da (web + API bitta manbadan) ──
+    from .savdo_service import savdo_yarat, SavdoXato
     try:
-        with transaction.atomic():
-            chek = SavdoChek.objects.create(
-                dokon=dokon,
-                sotuvchi=request.user,
-                jami=jami_chegirmali,
-                chegirma=chegirma,
-                to_langan=to_langan,
-                qaytim=qaytim,
-                tolash_turi=tolash_turi,
-            )
-
-            for mahsulot, soni, narx in chek_items:
-                # Faqat omborda soni yetarli bo'lsagina kamayadi (atomik).
-                kamaydi = Mahsulot.objects.filter(
-                    id=mahsulot.id, soni__gte=soni
-                ).update(soni=F('soni') - soni)
-                if not kamaydi:
-                    raise _OmborYetarliEmas(mahsulot.nomi)
-                SavdoChekMahsulot.objects.create(
-                    chek=chek,
-                    mahsulot=mahsulot,
-                    mahsulot_nomi=mahsulot.nomi,
-                    soni=soni,
-                    narx=narx,
-                    jami=soni * narx,
-                )
-
-            if tolash_turi != 'qarz':
-                Kassa.objects.get_or_create(dokon=dokon)
-                Kassa.objects.filter(dokon=dokon).update(
-                    balans=F('balans') + to_langan
-                )
-
-            if tolash_turi == 'qarz':
-                QarzDaftar.objects.create(
-                    dokon=dokon,
-                    mijoz_ism=mijoz_ism or "Noma'lum",
-                    mijoz_telefon=mijoz_telefon,
-                    qaytarish_sana=qaytarish_sana,
-                    chek=chek,
-                    summa=jami_chegirmali,
-                )
-    except _OmborYetarliEmas as e:
-        return _error_response(
-            request,
-            f"{e.nomi} yetarli emas — tovar boshqa mijozga sotilgan bo'lishi mumkin. "
-            f"Savatni yangilang.",
-            409,
+        chek = savdo_yarat(
+            dokon, request.user, mahsulotlar_data, tolash_turi=tolash_turi,
+            chegirma=chegirma, berilgan=berilgan, mijoz_ism=mijoz_ism,
+            mijoz_telefon=mijoz_telefon, qaytarish_sana=qaytarish_sana,
         )
+    except SavdoXato as e:
+        return _error_response(request, e.message, e.code)
+
+    qaytim = chek.qaytim
 
     if _is_json_request(request):
         return JsonResponse({
             'status': 'ok', 'chek_id': chek.id,
-            'jami': float(jami_chegirmali), 'qaytim': float(qaytim),
+            'jami': float(chek.jami), 'qaytim': float(qaytim),
             'chek_url': request.build_absolute_uri(
                 reverse('chek_korish', args=[chek.token])),
         })
@@ -834,74 +759,19 @@ def qaytarish_qil(request):
         return redirect('qaytarish')
 
     sabab = request.POST.get('sabab', 'boshqa')
-    if sabab not in dict(Qaytarish.SABAB):
-        sabab = 'boshqa'
     izoh = (request.POST.get('izoh') or '').strip()
 
-    # Qaytariladigan qatorlarni yig'amiz (har qator uchun son)
-    tanlangan = []   # (chek_mahsulot, soni, jami)
-    jami_summa = Decimal('0')
-    for cm in chek.mahsulotlar.all():
-        raw = request.POST.get(f'qty_{cm.id}', '0')
-        birlik = cm.mahsulot.birlik if cm.mahsulot_id else 'dona'
-        try:
-            soni = _miqdor(raw or 0, birlik)
-        except ValueError:
-            soni = Decimal('0')
-        if soni <= 0:
-            continue
-        qolgan = cm.qolgan_qaytarish
-        if soni > qolgan:
-            messages.error(
-                request,
-                f"{cm.mahsulot_nomi}: {_son(soni)} {birlik} qaytarib bo'lmaydi "
-                f"(qaytarish mumkin: {_son(qolgan)} {birlik}).")
-            return redirect(f"{reverse('qaytarish')}?q={chek.id}")
-        satr_jami = cm.narx * soni
-        tanlangan.append((cm, soni, satr_jami))
-        jami_summa += satr_jami
+    # Har qator uchun POST'dagi qty_<cm.id> ni yig'ib, servisga beramiz
+    qatorlar = [{'cm_id': cm.id, 'soni': request.POST.get(f'qty_{cm.id}', '0')}
+                for cm in chek.mahsulotlar.all()]
 
-    if not tanlangan:
-        messages.error(request, "Kamida bitta mahsulot va sonini tanlang.")
+    from .savdo_service import qaytarish_yarat, SavdoXato
+    try:
+        _, jami_summa, kassadan = qaytarish_yarat(
+            dokon, request.user, chek, qatorlar, sabab=sabab, izoh=izoh)
+    except SavdoXato as e:
+        messages.error(request, e.message)
         return redirect(f"{reverse('qaytarish')}?q={chek.id}")
-
-    # Pul qayerdan chiqadi? Qarz cheki bo'lsa va qarz hali to'lanmagan bo'lsa —
-    # qarzdan kamaytiramiz. Aks holda (naqd/karta yoki to'langan qarz) — kassadan.
-    qarz = None
-    kassadan = True
-    if chek.tolash_turi == 'qarz':
-        qarz = QarzDaftar.objects.filter(dokon=dokon, chek=chek).first()
-        if qarz and not qarz.to_langan:
-            kassadan = False
-
-    with transaction.atomic():
-        qaytarish = Qaytarish.objects.create(
-            dokon=dokon, chek=chek, sotuvchi=request.user,
-            summa=jami_summa, sabab=sabab, izoh=izoh, kassadan=kassadan,
-        )
-        for cm, soni, satr_jami in tanlangan:
-            QaytarishItem.objects.create(
-                qaytarish=qaytarish, chek_mahsulot=cm,
-                mahsulot=cm.mahsulot, mahsulot_nomi=cm.mahsulot_nomi,
-                soni=soni, narx=cm.narx, jami=satr_jami,
-            )
-            # Tovar omborga qaytadi
-            if cm.mahsulot_id:
-                Mahsulot.objects.filter(id=cm.mahsulot_id).update(soni=F('soni') + soni)
-
-        if kassadan:
-            Kassa.objects.get_or_create(dokon=dokon)
-            Kassa.objects.filter(dokon=dokon).update(balans=F('balans') - jami_summa)
-        elif qarz is not None:
-            # To'lanmagan qarzdan kamaytiramiz (mijoz shuncha kam qarzdor bo'ladi)
-            yangi = max(Decimal('0'), (qarz.summa or Decimal('0')) - jami_summa)
-            qarz.summa = yangi
-            if yangi == 0:
-                qarz.to_langan = True
-                qarz.to_langan_sana = timezone.now()
-                qarz.save(update_fields=['summa', 'to_langan', 'to_langan_sana'])
-            else:
-                qarz.save(update_fields=['summa'])
 
     manba = "kassadan" if kassadan else "qarzdan"
     messages.success(
@@ -977,22 +847,10 @@ def qarz_tolash(request, qarz_id):
     dokon = _get_dokon(request.user)
     if not dokon:
         return JsonResponse({'error': "Ruxsat yo'q"}, status=403)
-    with transaction.atomic():
-        # Faqat hali to'lanmagan qarzni "to'landi" qilamiz. update() bitta
-        # atomik amal — ikkita so'rov bir vaqtda kelsa ham, ROVGA faqat biri
-        # tegadi (natija 1), qolgani 0 qaytaradi. Shu bilan kassaga summa ikki
-        # marta qo'shilib ketmaydi.
-        yangilandi = QarzDaftar.objects.filter(
-            id=qarz_id, dokon=dokon, to_langan=False
-        ).update(to_langan=True, to_langan_sana=timezone.now())
-        if not yangilandi:
-            return JsonResponse(
-                {'error': "Topilmadi yoki allaqachon to'langan"}, status=404
-            )
-        qarz = QarzDaftar.objects.get(id=qarz_id, dokon=dokon)
-        Kassa.objects.get_or_create(dokon=dokon)
-        Kassa.objects.filter(dokon=dokon).update(balans=F('balans') + qarz.summa)
-    return JsonResponse({'status': 'ok'})
+    from .savdo_service import qarz_tolash_yadro
+    if qarz_tolash_yadro(dokon, qarz_id):
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'error': "Topilmadi yoki allaqachon to'langan"}, status=404)
 
 
 @login_required

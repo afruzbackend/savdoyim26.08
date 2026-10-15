@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal, InvalidOperation
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -470,10 +471,13 @@ def zavod_jonatma_yuborish(request):
                 manzil_txt=manzil_txt,
                 chiqish_sana=chiqish_sana,
             )
-            jami = 0
+            jami = Decimal('0')
             for item in mahsulotlar_data:
                 m = Mahsulot.objects.get(id=item['id'], zavod=profil)
-                soni = int(item['soni'])
+                try:
+                    soni = Decimal(str(item['soni']))
+                except (InvalidOperation, TypeError, KeyError):
+                    raise ValueError("Mahsulot soni noto'g'ri kiritilgan")
                 if soni <= 0:
                     continue
                 # Ombordan faqat qoldiq yetsagina (atomik F()) kamaytiramiz —
@@ -494,7 +498,7 @@ def zavod_jonatma_yuborish(request):
                     narx=m.narx,
                     tugash_sana=_sana(item.get('tugash')),
                 )
-                jami += float(m.narx) * soni
+                jami += m.narx * soni
 
             jonatma.jami_summa = jami
             jonatma.save(update_fields=['jami_summa'])

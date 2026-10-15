@@ -57,7 +57,7 @@
     <div class="row">
       <div>
         <div class="nomi">{{ item.mahsulot_nomi }}</div>
-        <div class="qty">{{ item.soni|son }} × {{ item.narx|floatformat:0 }} so'm</div>
+        <div class="qty">{{ item.soni|son }}{% if item.mahsulot and item.mahsulot.kasrli %} {{ item.mahsulot.birlik }}{% endif %} × {{ item.narx|floatformat:0 }} so'm</div>
       </div>
       <div class="summa">{{ item.jami|floatformat:0 }}</div>
     </div>

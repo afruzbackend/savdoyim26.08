@@ -38,6 +38,25 @@ class MahsulotSerializer(serializers.ModelSerializer):
         return obj.soni <= obj.minimum_son
 
 
+class OmmaviyMahsulotSerializer(serializers.ModelSerializer):
+    """Mijoz uchun: mahsulot + qaysi do'konga tegishli (ommaviy ko'rinish)."""
+    dokon_nomi = serializers.SerializerMethodField()
+    dokon_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Mahsulot
+        fields = [
+            'id', 'nomi', 'barkod', 'narx', 'soni', 'birlik',
+            'rasm', 'tavsif', 'dokon_id', 'dokon_nomi',
+        ]
+
+    def get_dokon_nomi(self, obj):
+        return obj.dokon.dokon_nomi if obj.dokon_id else None
+
+    def get_dokon_id(self, obj):
+        return obj.dokon_id
+
+
 class KassaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Kassa

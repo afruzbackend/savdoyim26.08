@@ -24,5 +24,24 @@ urlpatterns = [
     path('auth/logout/', views.logout_view, name='api-logout'),
     path('me/', views.me_view, name='api-me'),
     path('kassa/', views.kassa_view, name='api-kassa'),
+    # Mijoz uchun ommaviy (login talab qilmaydigan) mahsulot ro'yxati
+    path('ommaviy/mahsulotlar/', views.ommaviy_mahsulotlar, name='api-ommaviy-mahsulot'),
+    # Sotuvchi: smena + savdo (yozish)
+    path('smena/', views.smena_holati, name='api-smena'),
+    path('smena/ochish/', views.smena_ochish_api, name='api-smena-ochish'),
+    path('smena/yopish/', views.smena_yopish_api, name='api-smena-yopish'),
+    path('savdo/', views.savdo_api, name='api-savdo'),
+    # Sotuvchi: qarz to'lash, barkod, qaytarish (refund)
+    path('qarz/<int:qarz_id>/tolash/', views.qarz_tolash_api, name='api-qarz-tolash'),
+    path('mahsulot/barkod/<str:barkod>/', views.mahsulot_barkod, name='api-mahsulot-barkod'),
+    path('chek/topish/', views.chek_topish_api, name='api-chek-topish'),
+    path('qaytarish/', views.qaytarish_api, name='api-qaytarish'),
+    # Mijoz: buyurtma (Click & Collect)
+    path('mijoz/buyurtmalar/', views.mijoz_buyurtmalar, name='api-mijoz-buyurtmalar'),
+    path('mijoz/buyurtma/', views.mijoz_buyurtma_yarat, name='api-mijoz-buyurtma'),
+    path('mijoz/buyurtma/<int:buyurtma_id>/bekor/', views.mijoz_buyurtma_bekor, name='api-mijoz-buyurtma-bekor'),
+    # Mijoz: sodiqlik ballari, mahsulot sharhi
+    path('mijoz/sodiqlik/', views.mijoz_sodiqlik, name='api-mijoz-sodiqlik'),
+    path('mahsulot/<int:mahsulot_id>/sharh/', views.mahsulot_sharh, name='api-mahsulot-sharh'),
 ]
 urlpatterns += router.urls

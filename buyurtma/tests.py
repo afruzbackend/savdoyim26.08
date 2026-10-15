@@ -94,3 +94,53 @@ class SodiqlikIdempotentlikTest(SodiqlikBazasi):
     def test_ball_qiymati_konstantasi(self):
         # Hujjatlangan qoida buzilmasin: 1 ball = 1000 so'm xarid
         self.assertEqual(BALL_TOPISH_NARXI, 1000)
+
+
+class OlibKetishChekTest(TestCase):
+    """Onlayn buyurtma 'olib_ketildi' bo'lganda: savdo cheki + kassa daromadi
+    yoziladi, ombor QAYTA kamaymaydi (rezerv allaqachon kamaytirgan)."""
+
+    def setUp(self):
+        from mahsulot.models import Mahsulot
+        self.egasi = CustomUser.objects.create_user(
+            username='e2', password='parol12345', rol='dokon_egasi')
+        self.dokon = DokonEgasiProfil.objects.create(
+            foydalanuvchi=self.egasi, dokon_nomi='D2')
+        self.mijoz = CustomUser.objects.create_user(
+            username='m2', password='parol12345', rol='mijoz')
+        MijozProfil.objects.create(foydalanuvchi=self.mijoz)
+        self.m = Mahsulot.objects.create(
+            nomi='Choy', dokon=self.dokon, narx=Decimal('5000'), soni=10)
+
+    def test_olib_ketilganda_chek_kassa_va_ombor(self):
+        from buyurtma.services import OrderService
+        from kassa.models import SavdoChek, Kassa
+
+        b = OrderService.create(self.mijoz, self.dokon, [(self.m, Decimal('2'))])
+        self.m.refresh_from_db()
+        self.assertEqual(self.m.soni, Decimal('8'))          # rezerv: 10-2
+
+        # yangi -> tayyorlanmoqda -> tayyor -> olib_ketildi
+        for _ in range(3):
+            OrderService.advance_status(b, self.egasi)
+        b.refresh_from_db()
+        self.assertEqual(b.holat, 'olib_ketildi')
+
+        # Savdo cheki yaratildi, kassa oshdi
+        self.assertEqual(SavdoChek.objects.filter(dokon=self.dokon).count(), 1)
+        chek = SavdoChek.objects.get(dokon=self.dokon)
+        self.assertEqual(chek.jami, Decimal('10000'))        # 2 * 5000
+        self.assertEqual(Kassa.objects.get(dokon=self.dokon).balans, Decimal('10000'))
+
+        # Ombor QAYTA kamaymadi (hali 8 — ikki marta emas)
+        self.m.refresh_from_db()
+        self.assertEqual(self.m.soni, Decimal('8'))
+
+    def test_bekor_qilinganda_ombor_qaytadi(self):
+        from buyurtma.services import OrderService
+        b = OrderService.create(self.mijoz, self.dokon, [(self.m, Decimal('3'))])
+        self.m.refresh_from_db()
+        self.assertEqual(self.m.soni, Decimal('7'))          # rezerv: 10-3
+        OrderService.cancel(b, self.egasi)
+        self.m.refresh_from_db()
+        self.assertEqual(self.m.soni, Decimal('10'))         # qaytdi

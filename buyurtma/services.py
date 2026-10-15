@@ -21,22 +21,30 @@ class OrderService:
     @staticmethod
     @transaction.atomic
     def create(mijoz, dokon, itemlar, request=None):
-        """itemlar: [(mahsulot, soni), ...] — bitta do'konga tegishli."""
+        """itemlar: [(mahsulot, soni), ...] — bitta do'konga tegishli.
+
+        Buyurtma yaratilganda ombor ATOMIK kamaytiriladi (rezerv qilinadi) —
+        shu tovar boshqa mijozga yoki kassada qayta sotilmaydi (oversell yo'q).
+        Buyurtma bekor qilinsa (OrderService.cancel) ombor qaytariladi."""
         if not itemlar:
             raise ServiceError("Buyurtma bo'sh.", 400)
-        # Har bir mahsulot uchun omborda yetarli qoldiq borligini tekshiramiz
-        # (eng yangi qoldiqni DB'dan o'qib). Ombordagidan ko'p buyurtma bo'lmaydi.
         from mahsulot.models import Mahsulot
+        from django.db.models import F
         for mahsulot, soni in itemlar:
             if soni <= 0:
                 raise ServiceError(f"{mahsulot.nomi}: son noto'g'ri.", 400)
-            qoldiq = (Mahsulot.objects.filter(id=mahsulot.id)
-                      .values_list('soni', flat=True).first() or 0)
-            if soni > qoldiq:
-                raise ServiceError(
-                    f"{mahsulot.nomi}: omborda faqat {qoldiq} dona bor.", 409)
         buyurtma = MijozBuyurtma.objects.create(mijoz=mijoz, dokon=dokon, holat='yangi')
         for mahsulot, soni in itemlar:
+            # Faqat omborda yetarli bo'lsagina kamayadi (poyga/race himoyasi).
+            # Yetmasa — butun tranzaksiya (buyurtma + oldingi kamayishlar) bekor bo'ladi.
+            kamaydi = (Mahsulot.objects
+                       .filter(id=mahsulot.id, soni__gte=soni)
+                       .update(soni=F('soni') - soni))
+            if not kamaydi:
+                qoldiq = (Mahsulot.objects.filter(id=mahsulot.id)
+                          .values_list('soni', flat=True).first() or 0)
+                raise ServiceError(
+                    f"{mahsulot.nomi}: omborda faqat {qoldiq} {mahsulot.birlik} bor.", 409)
             MijozBuyurtmaItem.objects.create(
                 buyurtma=buyurtma, mahsulot=mahsulot, mahsulot_nomi=mahsulot.nomi,
                 soni=soni, narx=mahsulot.narx,
@@ -45,6 +53,30 @@ class OrderService:
         BuyurtmaStatusTarix.objects.create(buyurtma=buyurtma, holat='yangi')
         NotificationService.send_order_created(buyurtma)
         AuditService.log(mijoz, 'order_created', buyurtma, str(dokon), request)
+        return buyurtma
+
+    @staticmethod
+    @transaction.atomic
+    def cancel(buyurtma, user, request=None):
+        """Buyurtmani bekor qiladi va rezervlangan omborni qaytaradi.
+        Ruxsat: buyurtma egasi (mijoz) yoki do'kon xodimi. Yakuniy holatda mumkin emas."""
+        egasimi = (buyurtma.mijoz_id == getattr(user, 'id', None))
+        dokon = sotuvchi_dokoni(user)
+        if not (egasimi or (dokon and dokon == buyurtma.dokon)):
+            raise ServiceError("Ruxsat yo'q.", 403)
+        if buyurtma.holat in ('olib_ketildi', 'bekor'):
+            raise ServiceError("Bu buyurtmani bekor qilib bo'lmaydi.", 409)
+        from mahsulot.models import Mahsulot
+        from django.db.models import F
+        # Rezervlangan tovarlar omborga qaytadi
+        for it in buyurtma.itemlar.all():
+            if it.mahsulot_id:
+                Mahsulot.objects.filter(id=it.mahsulot_id).update(soni=F('soni') + it.soni)
+        buyurtma.holat = 'bekor'
+        buyurtma.save(update_fields=['holat', 'yangilangan'])
+        BuyurtmaStatusTarix.objects.create(buyurtma=buyurtma, holat='bekor')
+        NotificationService.send_order_status(buyurtma, 'bekor')
+        AuditService.log(user, 'order_status_changed', buyurtma, 'bekor', request)
         return buyurtma
 
     @staticmethod
@@ -89,8 +121,13 @@ class OrderService:
         NotificationService.send_order_status(buyurtma, keyingi)
         AuditService.log(user, 'order_status_changed', buyurtma, keyingi, request)
 
-        # Buyurtma olib ketilganda — sodiqlik ballari beriladi (1 ball / 1000 so'm)
+        # Buyurtma olib ketilganda:
+        #  1) savdo cheki yaratiladi (daromad + kassa) — ombor rezervда kamaygan,
+        #     shu yerda QAYTA kamaymaydi;
+        #  2) sodiqlik ballari beriladi (1 ball / 1000 so'm).
         if keyingi == 'olib_ketildi':
+            from kassa.savdo_service import chek_buyurtmadan
+            chek_buyurtmadan(buyurtma, sotuvchi=user, tolash_turi='naqd')
             SodiqlikService.ball_ber(buyurtma)
         return buyurtma
 

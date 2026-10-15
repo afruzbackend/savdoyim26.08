@@ -44,13 +44,18 @@
   </div>
   {% endif %}
 
-  <div data-action-area>
+  <div data-action-area style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
     {% if b.keyingi_holat %}
     <button class="btn btn-primary btn-sm" onclick="statusOldinga({{ b.id }})">
       <i class="fas fa-arrow-right"></i> {{ b.keyingi_holat_nomi }} ga o'tkazish
     </button>
     {% else %}
     <span style="font-size:12px;color:var(--text3);"><i class="fas fa-check-circle" style="color:var(--accent3);"></i> Yakunlandi</span>
+    {% endif %}
+    {% if b.holat != 'olib_ketildi' and b.holat != 'bekor' %}
+    <button class="btn btn-outline btn-sm" style="color:var(--danger);" onclick="bekorQil({{ b.id }})">
+      <i class="fas fa-times"></i> Bekor qilish
+    </button>
     {% endif %}
   </div>
 </div>
@@ -75,6 +80,23 @@ async function statusOldinga(id){
     const d = await r.json();
     if(d.success){
       showToast(d.message || 'Yangilandi', 'success');
+      setTimeout(()=>location.reload(), 600);
+    } else {
+      showToast(d.message || 'Xatolik', 'error');
+    }
+  }catch(e){ showToast('Xatolik yuz berdi', 'error'); }
+}
+async function bekorQil(id){
+  if(!confirm('Buyurtma bekor qilinsinmi? Rezervlangan tovar omborga qaytadi.')) return;
+  try{
+    const r = await fetch(`/order/mijoz-buyurtma/${id}/holat/`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRFToken':_csrf()},
+      body: JSON.stringify({holat:'bekor'})
+    });
+    const d = await r.json();
+    if(d.success){
+      showToast(d.message || 'Bekor qilindi', 'success');
       setTimeout(()=>location.reload(), 600);
     } else {
       showToast(d.message || 'Xatolik', 'error');

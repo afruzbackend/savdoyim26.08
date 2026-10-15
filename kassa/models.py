@@ -52,6 +52,12 @@ class Smena(models.Model):
         ordering = ['-ochilgan']
         verbose_name = 'Smena'
         verbose_name_plural = 'Smenalar'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['dokon'], condition=models.Q(holat='ochiq'),
+                name='bitta_dokonda_faqat_bitta_ochiq_smena',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.dokon.dokon_nomi} · {self.ochilgan:%d.%m %H:%M} ({self.holat})"

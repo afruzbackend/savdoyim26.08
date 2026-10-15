@@ -37,7 +37,7 @@
       <div id="addForm" style="display:none;">
         <div style="display:flex;gap:8px;margin-bottom:12px;">
           <input type="text" id="mNomi" class="form-control" placeholder="Mahsulot nomi">
-          <input type="number" id="mSoni" class="form-control" style="width:90px;" placeholder="Soni" min="1" value="1">
+          <input type="number" id="mSoni" class="form-control" style="width:90px;" placeholder="Soni" min="0.001" step="0.001" value="1">
           <button onclick="qosh()" class="btn btn-success btn-sm"><i class="fas fa-plus"></i></button>
         </div>
         <div id="items"></div>
@@ -77,7 +77,7 @@ function zavodTanla(id, nomi, tur) {
 
 function qosh() {
   const n = document.getElementById('mNomi').value.trim();
-  const s = parseInt(document.getElementById('mSoni').value) || 1;
+  const s = parseFloat(document.getElementById('mSoni').value) || 1;
   if (!n) return;
   malar.push({nomi: n, soni: s});
   document.getElementById('mNomi').value = '';

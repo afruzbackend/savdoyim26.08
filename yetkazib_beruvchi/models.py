@@ -104,7 +104,7 @@ class JonatmaMahsulot(models.Model):
     )
     mahsulot_nomi = models.CharField(max_length=200)
     barkod = models.CharField(max_length=50, blank=True, help_text="Mahsulot barkodi")
-    soni = models.PositiveIntegerField()
+    soni = models.DecimalField(max_digits=12, decimal_places=3, default=1)
     birlik = models.CharField(max_length=20, default='dona', help_text="dona / kg")
     narx = models.DecimalField(max_digits=12, decimal_places=2)
     tugash_sana = models.DateField(null=True, blank=True, help_text="Yaroqlilik (tugash) muddati")

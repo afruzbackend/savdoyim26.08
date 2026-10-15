@@ -91,7 +91,10 @@ def mahsulot_royxat(request):
         except Exception:
             mahsulotlar = []
     else:
-        mahsulotlar = Mahsulot.objects.filter(faol=True)
+        # Mijoz (va boshqa har qanday rol) faqat DO'KON mahsulotlarini ko'radi.
+        # Zavod katalogi (dokon=None) — hali do'kon qabul qilmagan mahsulot —
+        # mijoz/guestga hech qachon ko'rinmasligi kerak (marketplace faqat do'kon uchun).
+        mahsulotlar = Mahsulot.objects.filter(faol=True, dokon__isnull=False)
 
     # Aqlli bashorat: do'kon egasi/sotuvchi uchun "taxminan qachon tugaydi"
     if dokon:
@@ -341,8 +344,20 @@ def jonatma_qabul_dokon_action(request):
         return JsonResponse(
             {'error': "Bu jo'natma boshqa do'konga mo'ljallangan."}, status=403)
 
+    from django.db.models import F
+
     qoshildi = []
     with transaction.atomic():
+        # ── ATOMIK "claim" (poyga himoyasi) ──
+        # Bir jo'natmani bir vaqtda ikki marta skanerlash (double-tap / ikki qurilma)
+        # holatida ombor IKKI barobar oshib ketmasligi uchun: faqat hali qabul
+        # qilinmagan bo'lsagina (dokon_qabul=False) bitta so'rov "egallaydi".
+        claimed = (Jonatma.objects.filter(id=j.id, dokon_qabul=False)
+                   .update(dokon_qabul=True, holat='yetkazildi'))
+        if not claimed:
+            return JsonResponse(
+                {'error': 'Bu jo\'natma allaqachon qabul qilingan'}, status=400)
+
         for jm in j.mahsulotlar.all():
             muddat = None
             if jm.tugash_sana:
@@ -354,27 +369,24 @@ def jonatma_qabul_dokon_action(request):
             if not mah:
                 mah = Mahsulot.objects.filter(dokon=dokon, nomi=jm.mahsulot_nomi).first()
             if mah:
-                mah.soni += jm.soni
-                mah.birlik = jm.birlik or mah.birlik
-                if muddat:
-                    mah.yaroqlilik_muddati = muddat
-                mah.faol = True
-                mah.save(update_fields=['soni', 'birlik', 'yaroqlilik_muddati', 'faol'])
-                yangi = False
+                # Ombor F() bilan oshadi — bir vaqtda boshqa jo'natma ham shu
+                # mahsulotга qo'shsa, o'zgarish yo'qolmaydi (read-modify-write emas).
+                Mahsulot.objects.filter(id=mah.id).update(
+                    soni=F('soni') + jm.soni,
+                    birlik=(jm.birlik or mah.birlik),
+                    yaroqlilik_muddati=(muddat or mah.yaroqlilik_muddati),
+                    faol=True,
+                )
+                nomi, birlik, yangi = mah.nomi, (jm.birlik or mah.birlik), False
             else:
-                mah = Mahsulot.objects.create(
+                yangi_mah = Mahsulot.objects.create(
                     dokon=dokon, nomi=jm.mahsulot_nomi,
                     barkod=(jm.barkod or None), soni=jm.soni,
                     narx=jm.narx, sotib_olish_narxi=jm.narx,
                     birlik=(jm.birlik or 'dona'), yaroqlilik_muddati=muddat, faol=True,
                 )
-                yangi = True
-            qoshildi.append({'nomi': mah.nomi, 'soni': jm.soni, 'birlik': mah.birlik, 'yangi': yangi})
-
-        j.dokon_qabul = True
-        if j.holat != 'yetkazildi':
-            j.holat = 'yetkazildi'
-        j.save(update_fields=['dokon_qabul', 'holat'])
+                nomi, birlik, yangi = yangi_mah.nomi, yangi_mah.birlik, True
+            qoshildi.append({'nomi': nomi, 'soni': jm.soni, 'birlik': birlik, 'yangi': yangi})
 
     return JsonResponse({
         'status': 'ok',

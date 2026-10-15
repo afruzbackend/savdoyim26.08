@@ -31,6 +31,20 @@ def _reg_keys(email):
     return (f'reg_code:{email}', f'reg_attempts:{email}', f'reg_block:{email}')
 
 
+_PAROL_XATO = {
+    'password_too_short': "Parol juda qisqa (kamida 6 ta belgi).",
+    'password_too_common': "Parol juda oddiy — hamma ishlatadigan parollardan.",
+    'password_entirely_numeric': "Parol faqat raqamlardan iborat bo'lmasin.",
+    'password_too_similar': "Parol login, ism yoki emailga juda o'xshash.",
+}
+
+
+def _parol_xatolari(e):
+    """Django parol validatori xatolarini o'zbekchaga o'giradi."""
+    return " ".join(_PAROL_XATO.get(getattr(x, 'code', ''), x.messages[0] if hasattr(x, 'messages') else str(x))
+                    for x in e.error_list)
+
+
 def test_rejimi():
     """Email sozlanmagan LOKAL rejim: kod ekranda ko'rsatiladi. Productionda (DEBUG=False)
     hech qachon True bo'lmaydi — kodni so'ragan odamga ko'rsatish akkauntni egallashga olib keladi."""
@@ -295,7 +309,7 @@ def register_view(request):
         try:
             validate_password(password, CustomUser(username=username, email=email, first_name=ism))
         except ValidationError as e:
-            messages.error(request, "Parol juda oddiy: " + " ".join(e.messages))
+            messages.error(request, _parol_xatolari(e))
             return render(request, 'register.html')
 
         if CustomUser.objects.filter(username__iexact=username).exists():
@@ -535,7 +549,7 @@ def forgot_password_view(request):
             try:
                 validate_password(new_password, user)
             except ValidationError as e:
-                messages.error(request, "Yangi parol: " + " ".join(e.messages))
+                messages.error(request, "Yangi parol: " + _parol_xatolari(e))
                 return render(request, 'forgot_password.html', {'step': 'code', 'email': email})
             cache.delete(f"pw_code:{user.id}")
             user.set_password(new_password)
@@ -1027,7 +1041,7 @@ def settings_action(request):
         try:
             validate_password(yangi, user)
         except ValidationError as e:
-            return JsonResponse({'ok': False, 'message': " ".join(e.messages)}, status=400)
+            return JsonResponse({'ok': False, 'message': _parol_xatolari(e)}, status=400)
         user.set_password(yangi)
         user.save(update_fields=['password'])
         from django.contrib.auth import update_session_auth_hash

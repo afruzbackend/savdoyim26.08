@@ -872,7 +872,6 @@ td, th, .alert, .status {
       <a href="{% url 'mahsulot_royxat' %}" class="nav-item {% if 'mahsulot' in request.path and 'skanner' not in request.path %}active{% endif %}"><i class="fas fa-boxes"></i> Mahsulotlar</a>
       <a href="{% url 'qarz_royxat' %}" class="nav-item {% if 'qarzlar' in request.path %}active{% endif %}"><i class="fas fa-file-invoice-dollar"></i> Qarz Daftar</a>
       <a href="{% url 'qaytarish' %}" class="nav-item {% if 'qaytarish' in request.path %}active{% endif %}"><i class="fas fa-rotate-left"></i> Qaytarish</a>
-      <a href="{% url 'sotuvchilar_kpi' %}" class="nav-item {% if 'kassa/sotuvchilar' in request.path %}active{% endif %}"><i class="fas fa-trophy"></i> Sotuvchilar reytingi</a>
       <a href="{% url 'sotuvchi_mijoz_buyurtmalar' %}" class="nav-item {% if 'dokon-buyurtmalari' in request.path %}active{% endif %}"><i class="fas fa-receipt"></i> Mijoz buyurtmalari</a>
       <a href="{% url 'skanner' %}" class="nav-item {% if 'skanner' in request.path %}active{% endif %}"><i class="fas fa-barcode"></i> Skanner</a>
       <a href="{% url 'jonatma_qabul_dokon' %}" class="nav-item {% if 'jonatma-qabul' in request.path %}active{% endif %}"><i class="fas fa-qrcode"></i> Jo'natma qabul</a>

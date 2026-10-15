@@ -407,7 +407,7 @@ def smena_yopish(request):
     if data['top']:
         matn.append("\n🏆 <b>Eng ko'p sotilgan:</b>")
         for i, mm in enumerate(data['top'][:5], 1):
-            matn.append(f"  {i}. {_esc(mm['nomi'])} — {mm['jami_soni']} dona · {pul(mm['summa'])}")
+            matn.append(f"  {i}. {_esc(mm['mahsulot_nomi'])} — {mm['jami_soni']} dona · {pul(mm['summa'])}")
 
     # Do'kon egasiga Telegramга yuboramiz
     link = TelegramLink.objects.filter(foydalanuvchi=dokon.foydalanuvchi).first()

@@ -66,7 +66,7 @@
     <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:8px;">🏆 Eng ko'p sotilgan</div>
     {% for m in natija.top %}
     <div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;border-bottom:1px solid var(--border);">
-      <span>{{ forloop.counter }}. {{ m.nomi }}</span>
+      <span>{{ forloop.counter }}. {{ m.mahsulot_nomi }}</span>
       <span style="color:var(--text2);">{{ m.jami_soni }} dona · {{ m.summa|floatformat:0 }} so'm</span>
     </div>
     {% endfor %}
